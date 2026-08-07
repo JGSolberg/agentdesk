@@ -34,6 +34,14 @@ class TicketCreate(BaseModel):
     parent_id: str | None = None
     status: TicketStatus = TicketStatus.BACKLOG
     priority: TicketPriority = TicketPriority.MEDIUM
+    goal: str | None = None
+    acceptance_criteria: list[str] = Field(default_factory=list)
+    constraints: list[str] = Field(default_factory=list)
+    definition_of_done: list[str] = Field(default_factory=list)
+    relevant_files: list[str] = Field(default_factory=list)
+    context: list[str] = Field(default_factory=list)
+    estimated_complexity: str | None = Field(default=None, max_length=50)
+    requires_human: bool = False
     order: float = 0.0
 
 
@@ -44,6 +52,14 @@ class TicketUpdate(BaseModel):
     parent_id: str | None = None
     status: TicketStatus | None = None
     priority: TicketPriority | None = None
+    goal: str | None = None
+    acceptance_criteria: list[str] | None = None
+    constraints: list[str] | None = None
+    definition_of_done: list[str] | None = None
+    relevant_files: list[str] | None = None
+    context: list[str] | None = None
+    estimated_complexity: str | None = Field(default=None, max_length=50)
+    requires_human: bool | None = None
     order: float | None = None
 
 
@@ -60,6 +76,14 @@ class TicketRead(BaseModel):
     priority: TicketPriority
     title: str
     description: str | None
+    goal: str | None
+    acceptance_criteria: list[str]
+    constraints: list[str]
+    definition_of_done: list[str]
+    relevant_files: list[str]
+    context: list[str]
+    estimated_complexity: str | None
+    requires_human: bool
     order: float
     created_at: datetime
     updated_at: datetime
