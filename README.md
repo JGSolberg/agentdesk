@@ -97,10 +97,10 @@ This README is the project checklist. Check items off only when the implementati
 
 ### AD-1: Project persistence
 
-- [ ] Create `Project` database model.
-- [ ] Support create, read, update, and list operations.
-- [ ] Give every project a stable ID, name, optional description, timestamps, and archived flag.
-- [ ] Add API tests.
+- [x] Create `Project` database model.
+- [x] Support create, read, update, and list operations.
+- [x] Give every project a stable ID, name, optional description, timestamps, and archived flag.
+- [x] Add API tests.
 
 ### AD-2: Ticket persistence
 
