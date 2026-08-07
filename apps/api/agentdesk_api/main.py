@@ -109,6 +109,14 @@ def create_ticket(project_id: str, payload: TicketCreate, db: Session = Depends(
         priority=payload.priority,
         title=payload.title,
         description=payload.description,
+        goal=payload.goal,
+        acceptance_criteria=payload.acceptance_criteria,
+        constraints=payload.constraints,
+        definition_of_done=payload.definition_of_done,
+        relevant_files=payload.relevant_files,
+        context=payload.context,
+        estimated_complexity=payload.estimated_complexity,
+        requires_human=payload.requires_human,
         order=payload.order,
     )
     db.add(ticket)

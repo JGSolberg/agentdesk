@@ -122,3 +122,65 @@ def test_ticket_hierarchy_rejects_cycles() -> None:
         response = client.patch(f"/tickets/{parent['id']}", json={"parent_id": child["id"]})
         assert response.status_code == 400
         assert response.json()["detail"] == "Ticket hierarchy cannot contain a cycle"
+
+
+def test_structured_ticket_fields_round_trip_and_update() -> None:
+    with TestClient(app) as client:
+        project = create_project(client, "Structured Work")
+        created = client.post(
+            f"/projects/{project['id']}/tickets",
+            json={
+                "title": "Implement OAuth",
+                "goal": "Users can authenticate with Google",
+                "acceptance_criteria": ["Google login succeeds", "Errors are visible"],
+                "constraints": ["Do not remove password login"],
+                "definition_of_done": ["Tests pass", "Existing auth still works"],
+                "relevant_files": ["src/auth/provider.py", "src/auth/session.py"],
+                "context": ["Use the existing AuthProvider abstraction"],
+                "estimated_complexity": "medium",
+                "requires_human": True,
+            },
+        )
+        assert created.status_code == 201
+        ticket = created.json()
+        assert ticket["goal"] == "Users can authenticate with Google"
+        assert ticket["acceptance_criteria"] == ["Google login succeeds", "Errors are visible"]
+        assert ticket["constraints"] == ["Do not remove password login"]
+        assert ticket["definition_of_done"] == ["Tests pass", "Existing auth still works"]
+        assert ticket["relevant_files"] == ["src/auth/provider.py", "src/auth/session.py"]
+        assert ticket["context"] == ["Use the existing AuthProvider abstraction"]
+        assert ticket["estimated_complexity"] == "medium"
+        assert ticket["requires_human"] is True
+
+        updated = client.patch(
+            f"/tickets/{ticket['id']}",
+            json={
+                "acceptance_criteria": ["Google login succeeds"],
+                "constraints": [],
+                "estimated_complexity": "small",
+                "requires_human": False,
+            },
+        )
+        assert updated.status_code == 200
+        changed = updated.json()
+        assert changed["acceptance_criteria"] == ["Google login succeeds"]
+        assert changed["constraints"] == []
+        assert changed["estimated_complexity"] == "small"
+        assert changed["requires_human"] is False
+        assert changed["goal"] == "Users can authenticate with Google"
+
+
+def test_structured_ticket_fields_have_safe_defaults_and_reject_null_lists() -> None:
+    with TestClient(app) as client:
+        project = create_project(client, "Defaults")
+        created = client.post(f"/projects/{project['id']}/tickets", json={"title": "Plain story"})
+        assert created.status_code == 201
+        ticket = created.json()
+        for field in ["acceptance_criteria", "constraints", "definition_of_done", "relevant_files", "context"]:
+            assert ticket[field] == []
+        assert ticket["goal"] is None
+        assert ticket["estimated_complexity"] is None
+        assert ticket["requires_human"] is False
+
+        invalid = client.patch(f"/tickets/{ticket['id']}", json={"acceptance_criteria": None})
+        assert invalid.status_code == 422
