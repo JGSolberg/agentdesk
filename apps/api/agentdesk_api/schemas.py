@@ -84,6 +84,10 @@ class TicketRead(BaseModel):
     context: list[str]
     estimated_complexity: str | None
     requires_human: bool
+    dependency_ids: list[str]
+    blocked_by_ids: list[str]
+    is_blocked: bool
+    ready_to_start: bool
     order: float
     created_at: datetime
     updated_at: datetime
