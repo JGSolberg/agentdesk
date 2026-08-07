@@ -9,6 +9,12 @@ def create_project(client: TestClient, name: str = "AgentDesk") -> dict:
     return response.json()
 
 
+def create_ticket(client: TestClient, project_id: str, title: str, **fields) -> dict:
+    response = client.post(f"/projects/{project_id}/tickets", json={"title": title, **fields})
+    assert response.status_code == 201
+    return response.json()
+
+
 def test_ticket_crud_hierarchy_and_project_scoped_keys() -> None:
     with TestClient(app) as client:
         project = create_project(client)
@@ -184,3 +190,95 @@ def test_structured_ticket_fields_have_safe_defaults_and_reject_null_lists() -> 
 
         invalid = client.patch(f"/tickets/{ticket['id']}", json={"acceptance_criteria": None})
         assert invalid.status_code == 422
+
+
+def test_dependencies_expose_blocked_state_and_auto_unblock() -> None:
+    with TestClient(app) as client:
+        project = create_project(client, "Dependency Flow")
+        foundation = create_ticket(client, project["id"], "Foundation")
+        feature = create_ticket(client, project["id"], "Feature")
+
+        added = client.post(f"/tickets/{feature['id']}/dependencies/{foundation['id']}")
+        assert added.status_code == 200
+        blocked = added.json()
+        assert blocked["dependency_ids"] == [foundation["id"]]
+        assert blocked["blocked_by_ids"] == [foundation["id"]]
+        assert blocked["is_blocked"] is True
+        assert blocked["ready_to_start"] is False
+        assert blocked["status"] == "blocked"
+
+        premature = client.patch(f"/tickets/{feature['id']}", json={"status": "ready"})
+        assert premature.status_code == 409
+
+        completed = client.patch(f"/tickets/{foundation['id']}", json={"status": "done"})
+        assert completed.status_code == 200
+        unblocked = client.get(f"/tickets/{feature['id']}").json()
+        assert unblocked["blocked_by_ids"] == []
+        assert unblocked["is_blocked"] is False
+        assert unblocked["ready_to_start"] is True
+        assert unblocked["status"] == "ready"
+
+        ready = client.get(f"/projects/{project['id']}/tickets/ready")
+        assert ready.status_code == 200
+        assert [ticket["id"] for ticket in ready.json()] == [feature["id"]]
+
+
+def test_dependency_completion_regression_reblocks_waiting_ticket() -> None:
+    with TestClient(app) as client:
+        project = create_project(client, "Regression")
+        dependency = create_ticket(client, project["id"], "Dependency", status="done")
+        dependent = create_ticket(client, project["id"], "Dependent")
+
+        added = client.post(f"/tickets/{dependent['id']}/dependencies/{dependency['id']}")
+        assert added.status_code == 200
+        assert added.json()["status"] == "ready"
+
+        regressed = client.patch(f"/tickets/{dependency['id']}", json={"status": "in_progress"})
+        assert regressed.status_code == 200
+        dependent_after = client.get(f"/tickets/{dependent['id']}").json()
+        assert dependent_after["status"] == "blocked"
+        assert dependent_after["is_blocked"] is True
+
+
+def test_dependency_graph_rejects_self_cross_project_and_cycles() -> None:
+    with TestClient(app) as client:
+        first = create_project(client, "Graph One")
+        second = create_project(client, "Graph Two")
+        a = create_ticket(client, first["id"], "A")
+        b = create_ticket(client, first["id"], "B")
+        c = create_ticket(client, first["id"], "C")
+        foreign = create_ticket(client, second["id"], "Foreign")
+
+        self_link = client.post(f"/tickets/{a['id']}/dependencies/{a['id']}")
+        assert self_link.status_code == 400
+
+        cross_project = client.post(f"/tickets/{a['id']}/dependencies/{foreign['id']}")
+        assert cross_project.status_code == 400
+
+        assert client.post(f"/tickets/{b['id']}/dependencies/{a['id']}").status_code == 200
+        assert client.post(f"/tickets/{c['id']}/dependencies/{b['id']}").status_code == 200
+        cycle = client.post(f"/tickets/{a['id']}/dependencies/{c['id']}")
+        assert cycle.status_code == 400
+        assert cycle.json()["detail"] == "Ticket dependency graph cannot contain a cycle"
+
+
+def test_dependency_can_be_removed_and_duplicate_add_is_idempotent() -> None:
+    with TestClient(app) as client:
+        project = create_project(client, "Dependency Removal")
+        dependency = create_ticket(client, project["id"], "Dependency")
+        dependent = create_ticket(client, project["id"], "Dependent")
+
+        first = client.post(f"/tickets/{dependent['id']}/dependencies/{dependency['id']}")
+        second = client.post(f"/tickets/{dependent['id']}/dependencies/{dependency['id']}")
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert second.json()["dependency_ids"] == [dependency["id"]]
+
+        removed = client.delete(f"/tickets/{dependent['id']}/dependencies/{dependency['id']}")
+        assert removed.status_code == 200
+        assert removed.json()["dependency_ids"] == []
+        assert removed.json()["blocked_by_ids"] == []
+        assert removed.json()["status"] == "ready"
+
+        missing = client.delete(f"/tickets/{dependent['id']}/dependencies/{dependency['id']}")
+        assert missing.status_code == 404

@@ -5,7 +5,7 @@ from enum import StrEnum
 import re
 import uuid
 
-from sqlalchemy import JSON, Boolean, DateTime, Enum as SqlEnum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Column, DateTime, Enum as SqlEnum, Float, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -54,6 +54,14 @@ def project_ticket_prefix(name: str) -> str:
         prefix = "AD"
     cleaned = re.sub(r"[^A-Za-z0-9]", "", prefix).upper()
     return (cleaned or "AD")[:5]
+
+
+ticket_dependencies = Table(
+    "ticket_dependencies",
+    Base.metadata,
+    Column("ticket_id", ForeignKey("tickets.id", ondelete="CASCADE"), primary_key=True),
+    Column("dependency_id", ForeignKey("tickets.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class Project(Base):
@@ -116,3 +124,35 @@ class Ticket(Base):
     project: Mapped[Project] = relationship(back_populates="tickets")
     parent: Mapped[Ticket | None] = relationship(remote_side="Ticket.id", back_populates="children")
     children: Mapped[list[Ticket]] = relationship(back_populates="parent")
+    dependencies: Mapped[list[Ticket]] = relationship(
+        secondary=ticket_dependencies,
+        primaryjoin=id == ticket_dependencies.c.ticket_id,
+        secondaryjoin=id == ticket_dependencies.c.dependency_id,
+        back_populates="dependents",
+    )
+    dependents: Mapped[list[Ticket]] = relationship(
+        secondary=ticket_dependencies,
+        primaryjoin=id == ticket_dependencies.c.dependency_id,
+        secondaryjoin=id == ticket_dependencies.c.ticket_id,
+        back_populates="dependencies",
+    )
+
+    @property
+    def dependency_ids(self) -> list[str]:
+        return [ticket.id for ticket in self.dependencies]
+
+    @property
+    def blocked_by_ids(self) -> list[str]:
+        return [ticket.id for ticket in self.dependencies if ticket.status != TicketStatus.DONE]
+
+    @property
+    def is_blocked(self) -> bool:
+        return bool(self.blocked_by_ids)
+
+    @property
+    def ready_to_start(self) -> bool:
+        return not self.is_blocked and self.status in {
+            TicketStatus.BACKLOG,
+            TicketStatus.BLOCKED,
+            TicketStatus.READY,
+        }
