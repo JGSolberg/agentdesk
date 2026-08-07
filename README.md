@@ -40,20 +40,18 @@ Workspace
         └── Spike
 ```
 
-Tickets will support machine-readable fields in addition to human-readable descriptions:
+Tickets support machine-readable fields in addition to human-readable descriptions:
 
 ```yaml
 goal:
 acceptance_criteria: []
 constraints: []
 definition_of_done: []
-files: []
+relevant_files: []
 dependencies: []
 context: []
-owner:
 estimated_complexity:
 requires_human: false
-tools: []
 ```
 
 ## Ticket workflow
@@ -80,8 +78,10 @@ This README is the project checklist. Check items off only when the implementati
 - [ ] Add root `.gitignore` and development environment documentation.
 - [ ] Add one-command local startup for API and web app.
 - [ ] Add basic automated test commands for backend and frontend.
+- [ ] Add Alembic migrations so existing local databases evolve safely as models change.
+- [ ] Add migration tests for upgrading an existing SQLite database.
 
-**Milestone complete when:** a fresh clone can be installed, tested, and started locally from documented commands.
+**Milestone complete when:** a fresh clone can be installed, tested, started locally, and upgraded between schema versions from documented commands.
 
 ## Milestone 1 — Ticket core
 
@@ -104,14 +104,14 @@ This README is the project checklist. Check items off only when the implementati
 
 ### AD-3: Structured ticket fields
 
-- [ ] Add goal.
-- [ ] Add acceptance criteria.
-- [ ] Add constraints.
-- [ ] Add definition of done.
-- [ ] Add relevant files/context.
-- [ ] Add estimated complexity.
-- [ ] Add `requires_human`.
-- [ ] Expose fields through the API.
+- [x] Add goal.
+- [x] Add acceptance criteria.
+- [x] Add constraints.
+- [x] Add definition of done.
+- [x] Add relevant files/context.
+- [x] Add estimated complexity.
+- [x] Add `requires_human`.
+- [x] Expose fields through the API.
 
 ### AD-4: Dependencies
 
