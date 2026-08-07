@@ -53,13 +53,13 @@ class TicketUpdate(BaseModel):
     status: TicketStatus | None = None
     priority: TicketPriority | None = None
     goal: str | None = None
-    acceptance_criteria: list[str] | None = None
-    constraints: list[str] | None = None
-    definition_of_done: list[str] | None = None
-    relevant_files: list[str] | None = None
-    context: list[str] | None = None
+    acceptance_criteria: list[str] = Field(default_factory=list)
+    constraints: list[str] = Field(default_factory=list)
+    definition_of_done: list[str] = Field(default_factory=list)
+    relevant_files: list[str] = Field(default_factory=list)
+    context: list[str] = Field(default_factory=list)
     estimated_complexity: str | None = Field(default=None, max_length=50)
-    requires_human: bool | None = None
+    requires_human: bool = False
     order: float | None = None
 
 
