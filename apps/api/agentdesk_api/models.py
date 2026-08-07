@@ -5,7 +5,7 @@ from enum import StrEnum
 import re
 import uuid
 
-from sqlalchemy import DateTime, Enum as SqlEnum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Enum as SqlEnum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -99,6 +99,14 @@ class Ticket(Base):
     )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    goal: Mapped[str | None] = mapped_column(Text, nullable=True)
+    acceptance_criteria: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    constraints: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    definition_of_done: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    relevant_files: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    context: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    estimated_complexity: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    requires_human: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     order: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
