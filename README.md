@@ -7,15 +7,13 @@ AgentDesk owns project state; model providers and coding agents are replaceable 
 ## Product principles
 
 - **AgentDesk owns the truth.** Projects, tickets, dependencies, agent runs, events, and approvals live in AgentDesk rather than in an external issue tracker.
-- **Agents are replaceable workers.** GitHub Copilot, OpenAI, Anthropic, local models, or future providers should plug in behind a common interface.
+- **Agents are replaceable workers.** GitHub Copilot, OpenAI, Anthropic, local models, or future providers plug in behind common interfaces.
 - **Git remains the code source of truth.** Every coding task operates in an isolated branch/worktree and produces inspectable commits and diffs.
 - **Structured state beats agent chat.** Agents communicate through tickets, events, artifacts, and explicit state transitions rather than opaque conversations.
-- **Human approval is a first-class state.** The system should make it obvious when work needs a person rather than letting an agent guess indefinitely.
+- **Human approval is first-class.** The system makes it obvious when work needs a person rather than letting an agent guess indefinitely.
 - **Local-first for V1.** One user, one machine, SQLite, localhost. We earn complexity only when we need it.
 
 ## V1 target workflow
-
-The first meaningful end-to-end workflow is:
 
 1. A user creates or selects a project and associates a Git repository.
 2. The user tells the Chief of Staff what they want built.
@@ -25,7 +23,7 @@ The first meaningful end-to-end workflow is:
 6. Agents record structured progress events while they work.
 7. A reviewer agent validates acceptance criteria, tests, and the resulting diff.
 8. Work that passes review enters a human approval state.
-9. The user can inspect the ticket, activity, commits, and diff before accepting it.
+9. The user inspects the ticket, activity, commits, and diff before accepting it.
 10. Completing a Story automatically unblocks dependent work.
 
 ## Core domain model
@@ -42,7 +40,7 @@ Workspace
         └── Spike
 ```
 
-Tickets should eventually support machine-readable fields in addition to human-readable descriptions:
+Tickets will support machine-readable fields in addition to human-readable descriptions:
 
 ```yaml
 goal:
@@ -60,19 +58,11 @@ tools: []
 
 ## Ticket workflow
 
-Primary workflow:
-
 ```text
 Backlog -> Ready -> In Progress -> Review -> Done
 ```
 
-Additional operational states:
-
-```text
-Blocked
-Needs Human
-Agent Failed
-```
+Additional operational states: `Blocked`, `Needs Human`, `Agent Failed`.
 
 A ticket should only enter `Ready` when its dependencies are satisfied.
 
@@ -104,13 +94,13 @@ This README is the project checklist. Check items off only when the implementati
 
 ### AD-2: Ticket persistence
 
-- [ ] Create `Ticket` database model.
-- [ ] Support ticket types: Epic, Story, Task, Bug, Spike.
-- [ ] Support parent-child hierarchy.
-- [ ] Support ticket statuses: Backlog, Ready, In Progress, Review, Done, Blocked, Needs Human, Agent Failed.
-- [ ] Support title, description, priority, timestamps, and ordering.
-- [ ] Generate human-friendly project ticket keys such as `AD-42`.
-- [ ] Add API tests.
+- [x] Create `Ticket` database model.
+- [x] Support ticket types: Epic, Story, Task, Bug, Spike.
+- [x] Support parent-child hierarchy.
+- [x] Support ticket statuses: Backlog, Ready, In Progress, Review, Done, Blocked, Needs Human, Agent Failed.
+- [x] Support title, description, priority, timestamps, and ordering.
+- [x] Generate human-friendly project ticket keys such as `AD-42`.
+- [x] Add API tests.
 
 ### AD-3: Structured ticket fields
 
@@ -168,17 +158,7 @@ This README is the project checklist. Check items off only when the implementati
 
 - [ ] Create append-only event storage.
 - [ ] Record event type, timestamp, actor, project, ticket, run, and structured payload.
-- [ ] Define initial event vocabulary:
-  - `ticket.created`
-  - `ticket.updated`
-  - `ticket.status_changed`
-  - `agent.started`
-  - `agent.progress`
-  - `agent.completed`
-  - `agent.failed`
-  - `review.completed`
-  - `human.approved`
-  - `human.rejected`
+- [ ] Define initial event vocabulary: `ticket.created`, `ticket.updated`, `ticket.status_changed`, `agent.started`, `agent.progress`, `agent.completed`, `agent.failed`, `review.completed`, `human.approved`, `human.rejected`.
 - [ ] Add query API for project/ticket event timelines.
 
 ### AD-9: Activity UI
@@ -366,8 +346,6 @@ This README is the project checklist. Check items off only when the implementati
 
 # Technical direction
 
-Initial stack:
-
 ```text
 Frontend:       React + TypeScript + Vite
 Backend:        Python + FastAPI
@@ -380,23 +358,30 @@ Source control: Git + worktrees
 Testing:        pytest + frontend test tooling
 ```
 
-Likely repository layout:
+Repository layout:
 
 ```text
 agentdesk/
 ├── apps/
 │   ├── api/
+│   │   ├── agentdesk_api/
+│   │   └── tests/
 │   └── web/
+│       ├── src/
+│       └── public/
 ├── packages/
-│   ├── agents/
-│   ├── events/
+│   ├── core/
+│   ├── orchestration/
+│   ├── providers/
 │   ├── git/
-│   ├── tickets/
-│   └── providers/
-├── tests/
+│   └── prompts/
 ├── scripts/
-└── README.md
+├── ARCHITECTURE.md
+├── README.md
+└── .gitignore
 ```
+
+There is intentionally **no top-level `src/`**. Executable applications live under `apps/`; reusable capabilities live under `packages/`. A frontend app may have its conventional `apps/web/src/` directory.
 
 ## Explicitly out of scope for V1
 
@@ -409,8 +394,6 @@ agentdesk/
 - Autonomous merging to protected/default branches.
 - Large catalogs of specialized agent personas.
 - Building our own LLM.
-
-We can revisit these only after the local single-user workflow is excellent.
 
 ## Definition of success
 
