@@ -79,9 +79,7 @@ def _review_files(path: Path, base_ref: str) -> list[WorkspaceReviewFile]:
     for line in committed.stdout.splitlines():
         parts = line.split("\t")
         if len(parts) >= 2:
-            status = parts[0]
-            raw_path = parts[-1]
-            files[raw_path] = WorkspaceReviewFile(path=raw_path, status=status)
+            files[parts[-1]] = WorkspaceReviewFile(path=parts[-1], status=parts[0])
     for line in _status_lines(path):
         code = line[:2]
         raw_path = line[3:].strip()
@@ -104,17 +102,7 @@ def _untracked_diff(path: Path, files: list[WorkspaceReviewFile]) -> str:
         except (UnicodeDecodeError, OSError):
             chunks.append(f"diff --git a/{item.path} b/{item.path}\nnew file (binary or unreadable)\n")
             continue
-        chunks.append(
-            "".join(
-                difflib.unified_diff(
-                    [],
-                    text.splitlines(keepends=True),
-                    fromfile=f"a/{item.path}",
-                    tofile=f"b/{item.path}",
-                    lineterm="\n",
-                )
-            )
-        )
+        chunks.append("".join(difflib.unified_diff([], text.splitlines(keepends=True), fromfile=f"a/{item.path}", tofile=f"b/{item.path}", lineterm="\n")))
     return "\n".join(chunk for chunk in chunks if chunk)
 
 
@@ -138,13 +126,11 @@ def workspace_review(db: Session, workspace_id: str) -> WorkspaceReview:
     repository = require_repository(db, workspace.repository_id)
     base_ref = _base_ref(path, repository.default_branch)
     files = _review_files(path, base_ref)
-    tracked = _run(["git", "diff", base_ref, "--", ".", _EXCLUDE_PATHSPEC], cwd=path).stdout
-    diff = tracked
+    diff = _run(["git", "diff", base_ref, "--", ".", _EXCLUDE_PATHSPEC], cwd=path).stdout
     untracked = _untracked_diff(path, files)
     if untracked:
         diff = f"{diff.rstrip()}\n\n{untracked}".strip()
-    additions = 0
-    deletions = 0
+    additions = deletions = 0
     for line in diff.splitlines():
         if line.startswith("+++") or line.startswith("---"):
             continue
@@ -179,28 +165,20 @@ def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
     ticket = require_ticket(db, workspace.ticket_id)
     repository = require_repository(db, workspace.repository_id)
 
-    _run(["git", "fetch", "--prune", "origin", repository.default_branch], cwd=path)
-    if _has_unmerged_conflicts(path):
-        raise HTTPException(status_code=409, detail="Workspace still has unresolved merge conflicts. Run the agent again before publishing.")
-
-    base_ref = f"origin/{repository.default_branch}"
-    current = _run(["git", "merge-base", "--is-ancestor", base_ref, "HEAD"], cwd=path, allow_failure=True)
-    if current.returncode != 0:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Workspace is not integrated with the latest {base_ref}. Run the agent again so it can resolve default-branch conflicts before publishing.",
-        )
+    origin = _run(["git", "remote", "get-url", "origin"], cwd=path, allow_failure=True)
+    if origin.returncode == 0:
+        _run(["git", "fetch", "--prune", "origin", repository.default_branch], cwd=path)
+        if _has_unmerged_conflicts(path):
+            raise HTTPException(status_code=409, detail="Workspace still has unresolved merge conflicts. Run the agent again before publishing.")
+        base_ref = f"origin/{repository.default_branch}"
+        current = _run(["git", "merge-base", "--is-ancestor", base_ref, "HEAD"], cwd=path, allow_failure=True)
+        if current.returncode != 0:
+            raise HTTPException(status_code=409, detail=f"Workspace is not integrated with the latest {base_ref}. Run the agent again so it can resolve default-branch conflicts before publishing.")
 
     review = workspace_review(db, workspace.id)
     existing = _existing_pr(path, workspace.branch)
     if review.clean and existing is not None:
-        return WorkspacePublishResult(
-            branch=workspace.branch,
-            commit_sha=None,
-            pull_request_url=str(existing["url"]),
-            pull_request_number=existing["number"] if isinstance(existing["number"], int) else None,
-            created=False,
-        )
+        return WorkspacePublishResult(branch=workspace.branch, commit_sha=None, pull_request_url=str(existing["url"]), pull_request_number=existing["number"] if isinstance(existing["number"], int) else None, created=False)
     if review.clean:
         raise HTTPException(status_code=409, detail="Workspace has no reviewable changes to publish")
 
@@ -210,7 +188,6 @@ def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
     if title.startswith(prefix):
         title = title[len(prefix):]
     commit_title = f"{ticket.ticket_key}: {title}"
-
     staged = _run(["git", "diff", "--cached", "--quiet"], cwd=path, allow_failure=True)
     if staged.returncode != 0:
         _run(["git", "commit", "-m", commit_title], cwd=path)
@@ -218,23 +195,10 @@ def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
     _run(["git", "push", "-u", "origin", workspace.branch], cwd=path)
 
     if existing is not None:
-        return WorkspacePublishResult(
-            branch=workspace.branch,
-            commit_sha=commit_sha,
-            pull_request_url=str(existing["url"]),
-            pull_request_number=existing["number"] if isinstance(existing["number"], int) else None,
-            created=False,
-        )
+        return WorkspacePublishResult(branch=workspace.branch, commit_sha=commit_sha, pull_request_url=str(existing["url"]), pull_request_number=existing["number"] if isinstance(existing["number"], int) else None, created=False)
 
-    body = (
-        f"AgentDesk ticket **{ticket.ticket_key}**\n\n"
-        f"{ticket.goal or ticket.description or title}\n\n"
-        "Created from the AgentDesk review workflow. Merge remains a human decision in GitHub."
-    )
-    created = _run(
-        ["gh", "pr", "create", "--base", repository.default_branch, "--head", workspace.branch, "--title", commit_title, "--body", body],
-        cwd=path,
-    )
+    body = f"AgentDesk ticket **{ticket.ticket_key}**\n\n{ticket.goal or ticket.description or title}\n\nCreated from the AgentDesk review workflow. Merge remains a human decision in GitHub."
+    created = _run(["gh", "pr", "create", "--base", repository.default_branch, "--head", workspace.branch, "--title", commit_title, "--body", body], cwd=path)
     url = created.stdout.strip().splitlines()[-1].strip()
     number: int | None = None
     existing = _existing_pr(path, workspace.branch)
@@ -242,25 +206,10 @@ def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
         url = str(existing["url"])
         number = existing["number"] if isinstance(existing["number"], int) else None
 
-    event_repository.add(
-        db,
-        TicketEvent(
-            ticket_id=ticket.id,
-            event_type="pull_request_created",
-            actor="user",
-            payload={"workspace_id": workspace.id, "branch": workspace.branch, "commit_sha": commit_sha, "url": url, "number": number},
-        ),
-    )
+    event_repository.add(db, TicketEvent(ticket_id=ticket.id, event_type="pull_request_created", actor="user", payload={"workspace_id": workspace.id, "branch": workspace.branch, "commit_sha": commit_sha, "url": url, "number": number}))
     if ticket.status != TicketStatus.REVIEW:
         update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.REVIEW))
-
-    return WorkspacePublishResult(
-        branch=workspace.branch,
-        commit_sha=commit_sha,
-        pull_request_url=url,
-        pull_request_number=number,
-        created=True,
-    )
+    return WorkspacePublishResult(branch=workspace.branch, commit_sha=commit_sha, pull_request_url=url, pull_request_number=number, created=True)
 
 
 def sync_pull_request(db: Session, workspace_id: str) -> dict[str, object]:
@@ -288,13 +237,5 @@ def sync_pull_request(db: Session, workspace_id: str) -> dict[str, object]:
         _run(["git", "fetch", "--prune", "origin"], cwd=managed_clone, allow_failure=True)
 
     update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.DONE))
-    event_repository.add(
-        db,
-        TicketEvent(
-            ticket_id=ticket.id,
-            event_type="pull_request_merged",
-            actor="system",
-            payload={"workspace_id": workspace.id, "branch": branch, "url": url, "number": number, "branch_cleaned_up": True},
-        ),
-    )
+    event_repository.add(db, TicketEvent(ticket_id=ticket.id, event_type="pull_request_merged", actor="system", payload={"workspace_id": workspace.id, "branch": branch, "url": url, "number": number, "branch_cleaned_up": True}))
     return {"found": True, "merged": True, "cleaned_up": True, "url": url, "number": number, "state": "merged"}
