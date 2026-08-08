@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import shutil
 import subprocess
 
 from fastapi import HTTPException
@@ -62,7 +63,7 @@ def update_repository(db: Session, repository_id: str, payload: RepositoryUpdate
     changes = payload.model_dump(exclude_unset=True)
     if changes.get("is_primary"):
         _clear_other_primary(db, repository.project_id, repository.id)
-    if "remote_url" in changes and repository.managed_path:
+    if "remote_url" in changes and changes["remote_url"] != repository.remote_url and repository.managed_path:
         raise HTTPException(status_code=409, detail="Remove the managed clone before changing its remote URL")
     for field, value in changes.items():
         setattr(repository, field, value)
@@ -93,6 +94,21 @@ def clone_or_refresh_repository(db: Session, repository_id: str) -> Repository:
         raise HTTPException(status_code=502, detail=detail) from exc
 
     repository.managed_path = str(path)
+    return repository_repository.save(db, repository)
+
+
+def remove_managed_clone(db: Session, repository_id: str) -> Repository:
+    repository = require_repository(db, repository_id)
+    if not repository.managed_path:
+        return repository
+
+    path = Path(repository.managed_path).resolve()
+    root = (_agentdesk_home() / "repositories" / repository.id).resolve()
+    if path != root / "clone" or root not in path.parents:
+        raise HTTPException(status_code=409, detail="Refusing to remove a path not owned by AgentDesk")
+    if path.exists():
+        shutil.rmtree(path)
+    repository.managed_path = None
     return repository_repository.save(db, repository)
 
 
