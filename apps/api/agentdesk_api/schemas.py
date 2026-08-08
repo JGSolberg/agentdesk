@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .models import RepositoryProvider, TicketPriority, TicketStatus, TicketType, WorkspaceStatus
 
@@ -62,9 +62,16 @@ class WorkspaceCreate(BaseModel):
     branch: str | None = Field(default=None, max_length=255)
 
 
-class WorkspaceAdoptPr(BaseModel):
+class WorkspaceAdoptWork(BaseModel):
     ticket_id: str
-    pull_request: str = Field(min_length=1, max_length=1000)
+    branch: str | None = Field(default=None, min_length=1, max_length=255)
+    pull_request: str | None = Field(default=None, min_length=1, max_length=1000)
+
+    @model_validator(mode="after")
+    def require_source(self):
+        if not self.branch and not self.pull_request:
+            raise ValueError("branch or pull_request is required")
+        return self
 
 
 class WorkspaceRead(BaseModel):
