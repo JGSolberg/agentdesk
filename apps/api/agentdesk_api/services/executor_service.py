@@ -47,6 +47,7 @@ def execute_local_run(db: Session, run_id: str) -> AgentRun:
             cwd=workspace.path,
             env=env,
             shell=plan.shell,
+            input=plan.stdin,
             capture_output=True,
             text=True,
             timeout=1800,
@@ -56,7 +57,7 @@ def execute_local_run(db: Session, run_id: str) -> AgentRun:
         agent_service.append_log(db, run.id, AgentRunLogAppend(level="error", message=message))
         stdout = exc.stdout.decode(errors="replace") if isinstance(exc.stdout, bytes) else exc.stdout
         return agent_service.update_run(db, run.id, AgentRunUpdate(status=RunStatus.FAILED, error=message, result=stdout or None))
-    except FileNotFoundError as exc:
+    except FileNotFoundError:
         executable = plan.command[0] if isinstance(plan.command, list) and plan.command else str(plan.command)
         message = f"Agent executable not found: {executable}"
         agent_service.append_log(db, run.id, AgentRunLogAppend(level="error", message=message))
@@ -72,8 +73,4 @@ def execute_local_run(db: Session, run_id: str) -> AgentRun:
             agent_service.append_log(db, run.id, AgentRunLogAppend(level=level[:30], message=message))
 
     final_status = RunStatus.SUCCEEDED if outcome.error is None and completed.returncode == 0 else RunStatus.FAILED
-    return agent_service.update_run(
-        db,
-        run.id,
-        AgentRunUpdate(status=final_status, result=outcome.result, error=outcome.error),
-    )
+    return agent_service.update_run(db, run.id, AgentRunUpdate(status=final_status, result=outcome.result, error=outcome.error))
