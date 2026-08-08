@@ -1,0 +1,59 @@
+.ticket-lifecycle-wrap {
+  display: grid;
+  gap: 8px;
+  margin: -10px 0 22px;
+}
+
+.ticket-lifecycle-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ticket-lifecycle-actions button {
+  border: 1px solid #303746;
+  border-radius: 7px;
+  background: #171c24;
+  color: #cdd5e1;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.ticket-lifecycle-actions button:hover:not(:disabled) {
+  border-color: #596477;
+}
+
+.ticket-lifecycle-actions .danger-button {
+  border-color: #573434;
+  color: #ff9a9a;
+}
+
+.ticket-lifecycle-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ticket-lifecycle-note,
+.ticket-lifecycle-error {
+  text-align: right;
+  font-size: 11px;
+}
+
+.ticket-lifecycle-note { color: #7f8998; }
+.ticket-lifecycle-error { color: #ff9a9a; }
+
+.status-cancelled {
+  border-color: #55505f;
+  color: #b9b0c8;
+}
+
+@media (max-width: 760px) {
+  .ticket-lifecycle-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .ticket-lifecycle-note,
+  .ticket-lifecycle-error {
+    text-align: left;
+  }
+}

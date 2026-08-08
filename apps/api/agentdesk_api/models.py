@@ -32,6 +32,7 @@ class TicketStatus(StrEnum):
     BLOCKED = "blocked"
     NEEDS_HUMAN = "needs_human"
     AGENT_FAILED = "agent_failed"
+    CANCELLED = "cancelled"
 
 
 class TicketPriority(StrEnum):
@@ -137,6 +138,7 @@ class Ticket(Base):
     context: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     estimated_complexity: Mapped[str | None] = mapped_column(String(50), nullable=True)
     requires_human: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     order: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
@@ -163,7 +165,7 @@ class Ticket(Base):
 
     @property
     def ready_to_start(self) -> bool:
-        return not self.is_blocked and self.status in {TicketStatus.BACKLOG, TicketStatus.BLOCKED, TicketStatus.READY}
+        return not self.archived and not self.is_blocked and self.status in {TicketStatus.BACKLOG, TicketStatus.BLOCKED, TicketStatus.READY}
 
 
 class Workspace(Base):

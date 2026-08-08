@@ -6,7 +6,8 @@ export type TicketStatus =
   | "done"
   | "blocked"
   | "needs_human"
-  | "agent_failed";
+  | "agent_failed"
+  | "cancelled";
 
 export type TicketType = "epic" | "story" | "task" | "bug" | "spike";
 export type TicketPriority = "low" | "medium" | "high" | "critical";
@@ -30,6 +31,7 @@ export type Ticket = {
   context: string[];
   estimated_complexity: string | null;
   requires_human: boolean;
+  archived: boolean;
   order: number;
   dependency_ids: string[];
   blocked_by_ids: string[];
@@ -56,6 +58,7 @@ export type TicketUpdate = Partial<
     | "context"
     | "estimated_complexity"
     | "requires_human"
+    | "archived"
     | "order"
   >
 >;
@@ -73,13 +76,9 @@ const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers: { "Content-Type": "application/json", ...options?.headers },
     ...options,
   });
-
   if (!response.ok) {
     let detail = `AgentDesk API request failed (${response.status})`;
     try {
@@ -90,12 +89,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     }
     throw new Error(detail);
   }
-
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
-export function listTickets(projectId: string): Promise<Ticket[]> {
-  return request<Ticket[]>(`/projects/${projectId}/tickets`);
+export function listTickets(projectId: string, includeArchived = false): Promise<Ticket[]> {
+  const suffix = includeArchived ? "?include_archived=true" : "";
+  return request<Ticket[]>(`/projects/${projectId}/tickets${suffix}`);
 }
 
 export function getTicket(ticketId: string): Promise<Ticket> {
@@ -110,15 +110,13 @@ export function createTicket(
   projectId: string,
   payload: { title: string; type: TicketType; priority: TicketPriority; status?: TicketStatus },
 ): Promise<Ticket> {
-  return request<Ticket>(`/projects/${projectId}/tickets`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request<Ticket>(`/projects/${projectId}/tickets`, { method: "POST", body: JSON.stringify(payload) });
 }
 
 export function updateTicket(ticketId: string, payload: TicketUpdate): Promise<Ticket> {
-  return request<Ticket>(`/tickets/${ticketId}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
+  return request<Ticket>(`/tickets/${ticketId}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export function deleteTicket(ticketId: string): Promise<void> {
+  return request<void>(`/tickets/${ticketId}`, { method: "DELETE" });
 }
