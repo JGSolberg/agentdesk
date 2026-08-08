@@ -6,5 +6,6 @@ __pycache__/
 *.db
 node_modules/
 dist/
+*.tsbuildinfo
 .env
 .DS_Store
