@@ -1,0 +1,92 @@
+.git-status-card {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #2b3340;
+  border-radius: 10px;
+  background: #0d1117;
+}
+
+.git-status-card.invalid {
+  border-color: #5a3434;
+  color: #ff9b9b;
+}
+
+.git-status-card.muted {
+  color: #7f8a99;
+}
+
+.git-status-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.git-status-heading {
+  margin-bottom: 4px;
+  color: #748094;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.git-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.git-status-grid div {
+  padding: 10px;
+  border: 1px solid #232a35;
+  border-radius: 8px;
+  background: #111720;
+}
+
+.git-status-grid dt,
+.git-status-detail span {
+  color: #748094;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.git-status-grid dd {
+  margin: 4px 0 0;
+  color: #e4e9f0;
+  font-size: 13px;
+}
+
+.git-status-detail {
+  display: grid;
+  gap: 4px;
+}
+
+.git-status-detail code {
+  overflow: hidden;
+  color: #c4ceda;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-status-detail small {
+  color: #8792a3;
+}
+
+.git-status-warning {
+  margin: 0;
+  color: #ffd37b;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .git-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
