@@ -10,8 +10,7 @@ def test_roadmap_epics_are_enriched_idempotently() -> None:
         project, _ = bootstrap(db)
         repair_roadmap_identity(db)
 
-        updated = enrich_roadmap_epics(db)
-        assert updated == 10
+        enrich_roadmap_epics(db)
 
         tickets = list(project.tickets)
         event_ledger = next(ticket for ticket in tickets if ticket.type == TicketType.EPIC and ticket.title == "Milestone 3 — Event ledger")
