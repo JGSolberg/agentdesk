@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
+import RepositoryStatus from "./RepositoryStatus";
 import { getProject, type Project } from "./api/projects";
 import {
   createRepository,
@@ -120,7 +121,7 @@ export default function RepositoryPage() {
         <div>
           <div className="eyebrow">Project repositories</div>
           <h1>{project?.name ?? "Repositories"}</h1>
-          <p>Register the local codebases AgentDesk should know about for this project.</p>
+          <p>Register local codebases and inspect their current Git state.</p>
         </div>
       </header>
 
@@ -157,6 +158,7 @@ export default function RepositoryPage() {
                 <div><dt>Default branch</dt><dd>{repository.default_branch}</dd></div>
                 <div><dt>Remote</dt><dd>{repository.remote_url || "Not set"}</dd></div>
               </dl>
+              <RepositoryStatus repositoryId={repository.id} />
             </article>
           ))}
         </section>
