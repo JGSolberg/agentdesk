@@ -42,6 +42,10 @@ migration message:
 migrate:
     uv run alembic -c apps/api/alembic.ini upgrade head
 
+# Create/update the local AgentDesk project and roadmap
+bootstrap: migrate
+    uv run python -m agentdesk_api.bootstrap
+
 # Show current database migration revision
 migration-status:
     uv run alembic -c apps/api/alembic.ini current
