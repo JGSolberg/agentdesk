@@ -11,19 +11,24 @@ def test_repository_crud_and_primary_selection() -> None:
             f"/projects/{project['id']}/repositories",
             json={
                 "name": "agentdesk",
-                "local_path": r"E:\\Coding\\agentdesk",
-                "provider": "github",
-                "remote_url": "https://github.com/JGSolberg/agentdesk",
+                "provider": "other",
+                "remote_url": "repo://agentdesk",
                 "default_branch": "main",
             },
         )
         assert first_response.status_code == 201
         first = first_response.json()
         assert first["is_primary"] is True
+        assert first["managed_path"] is None
 
         second_response = client.post(
             f"/projects/{project['id']}/repositories",
-            json={"name": "docs", "local_path": r"E:\\Coding\\docs", "is_primary": True},
+            json={
+                "name": "docs",
+                "provider": "other",
+                "remote_url": "repo://docs",
+                "is_primary": True,
+            },
         )
         assert second_response.status_code == 201
         second = second_response.json()
@@ -58,6 +63,6 @@ def test_repository_requires_project() -> None:
     with TestClient(app) as client:
         response = client.post(
             "/projects/missing/repositories",
-            json={"name": "missing", "local_path": r"E:\\missing"},
+            json={"name": "missing", "provider": "other", "remote_url": "repo://missing"},
         )
         assert response.status_code == 404

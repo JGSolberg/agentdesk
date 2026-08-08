@@ -29,18 +29,16 @@ class ProjectRead(BaseModel):
 
 class RepositoryCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    local_path: str = Field(min_length=1, max_length=1000)
-    provider: RepositoryProvider = RepositoryProvider.LOCAL
-    remote_url: str | None = Field(default=None, max_length=1000)
+    provider: RepositoryProvider = RepositoryProvider.GITHUB
+    remote_url: str = Field(min_length=1, max_length=1000)
     default_branch: str = Field(default="main", min_length=1, max_length=255)
     is_primary: bool = False
 
 
 class RepositoryUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
-    local_path: str | None = Field(default=None, min_length=1, max_length=1000)
     provider: RepositoryProvider | None = None
-    remote_url: str | None = Field(default=None, max_length=1000)
+    remote_url: str | None = Field(default=None, min_length=1, max_length=1000)
     default_branch: str | None = Field(default=None, min_length=1, max_length=255)
     is_primary: bool | None = None
 
@@ -51,10 +49,10 @@ class RepositoryRead(BaseModel):
     id: str
     project_id: str
     name: str
-    local_path: str
     provider: RepositoryProvider
-    remote_url: str | None
+    remote_url: str
     default_branch: str
+    managed_path: str | None
     is_primary: bool
     created_at: datetime
     updated_at: datetime
