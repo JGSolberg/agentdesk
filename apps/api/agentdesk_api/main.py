@@ -70,6 +70,11 @@ def clone_repository(repository_id: str, db: Session = Depends(get_db)) -> Repos
     return repository_service.clone_or_refresh_repository(db, repository_id)
 
 
+@app.delete("/repositories/{repository_id}/clone", response_model=RepositoryRead)
+def remove_repository_clone(repository_id: str, db: Session = Depends(get_db)) -> Repository:
+    return repository_service.remove_managed_clone(db, repository_id)
+
+
 @app.delete("/repositories/{repository_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_repository(repository_id: str, db: Session = Depends(get_db)) -> Response:
     repository_service.delete_repository(db, repository_id)
