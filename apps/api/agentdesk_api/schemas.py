@@ -60,6 +60,22 @@ class RepositoryRead(BaseModel):
     updated_at: datetime
 
 
+class GitRepositoryStatusRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    path_exists: bool
+    is_git_repository: bool
+    branch: str | None
+    head_sha: str | None
+    head_message: str | None
+    remote_url: str | None
+    is_dirty: bool
+    staged_count: int
+    modified_count: int
+    untracked_count: int
+    error: str | None
+
+
 class TicketCreate(BaseModel):
     title: str = Field(min_length=1, max_length=300)
     type: TicketType = TicketType.STORY
