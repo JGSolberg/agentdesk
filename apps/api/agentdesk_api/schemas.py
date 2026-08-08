@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .models import (
     GitArtifactKind,
@@ -69,6 +69,18 @@ class WorkspaceCreate(BaseModel):
     branch: str | None = Field(default=None, max_length=255)
 
 
+class WorkspaceAdoptWork(BaseModel):
+    ticket_id: str
+    branch: str | None = Field(default=None, min_length=1, max_length=255)
+    pull_request: str | None = Field(default=None, min_length=1, max_length=1000)
+
+    @model_validator(mode="after")
+    def require_source(self):
+        if not self.branch and not self.pull_request:
+            raise ValueError("branch or pull_request is required")
+        return self
+
+
 class WorkspaceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
@@ -104,12 +116,14 @@ class WorkspaceReview(BaseModel):
     workspace_id: str
     branch: str
     clean: bool
+    unpublished: bool = False
     files: list[WorkspaceReviewFile]
     additions: int
     deletions: int
     diff: str
     pull_request_url: str | None = None
     pull_request_number: int | None = None
+    pull_request_merged: bool = False
 
 
 class WorkspacePublishResult(BaseModel):

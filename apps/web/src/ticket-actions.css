@@ -19,6 +19,7 @@
 .ticket-actions-popover > button { display: grid; grid-template-columns: minmax(0, 1fr) auto; width: 100%; gap: 3px 10px; border: 0; border-bottom: 1px solid #232833; background: transparent; color: #d8e0eb; padding: 12px 14px; text-align: left; cursor: pointer; }
 .ticket-actions-popover > button:last-child { border-bottom: 0; }
 .ticket-actions-popover > button:hover { background: #181d26; }
+.ticket-actions-popover > button:disabled { cursor: not-allowed; opacity: .48; }
 .ticket-actions-popover > button strong { grid-column: 1; font-size: 13px; }
 .ticket-actions-popover > button span { grid-column: 1; color: #778294; font-size: 11px; }
 .ticket-actions-popover > button b { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: #697587; font-size: 18px; font-weight: 400; }
@@ -38,7 +39,47 @@
 .ticket-actions-panel-body .ticket-lifecycle-note,
 .ticket-actions-panel-body .ticket-lifecycle-error { text-align: left; }
 
+.adopt-work-form { display: grid; gap: 14px; }
+.adopt-work-form > p { margin: 0; color: #8f99a9; font-size: 12px; line-height: 1.55; }
+.adopt-work-form label { display: grid; gap: 6px; color: #9da8b8; font-size: 11px; font-weight: 600; }
+.adopt-work-form input,
+.adopt-work-form select { width: 100%; box-sizing: border-box; border: 1px solid #303746; border-radius: 7px; background: #0d1117; color: #dce3ed; padding: 9px 10px; outline: none; }
+.adopt-work-form input:focus,
+.adopt-work-form select:focus { border-color: #6473a8; box-shadow: 0 0 0 2px rgba(100,115,168,.18); }
+.adopt-work-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.adopt-work-actions button { border: 1px solid #303746; border-radius: 7px; background: #171c24; color: #d8e0eb; padding: 8px 11px; cursor: pointer; }
+.adopt-work-actions button.primary { background: #28334f; border-color: #46557c; color: #eef2ff; }
+
+.ticket-create-wrap { position: relative; }
+.ticket-create-trigger { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #303746; border-radius: 7px; background: #171c24; color: #d8e0eb; padding: 8px 12px; cursor: pointer; font: inherit; }
+.ticket-create-trigger:hover { border-color: #596477; background: #1a2029; }
+.ticket-create-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 70; width: min(680px, calc(100vw - 48px)); max-height: min(720px, calc(100vh - 120px)); overflow: auto; display: grid; gap: 14px; box-sizing: border-box; border: 1px solid #303746; border-radius: 10px; background: #11151c; color: #d8e0eb; padding: 14px; box-shadow: 0 18px 50px rgba(0,0,0,.42); }
+.ticket-create-panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: -14px -14px 0; padding: 12px 14px; border-bottom: 1px solid #252b36; background: #0f131a; }
+.ticket-create-panel > header div { display: grid; gap: 2px; }
+.ticket-create-panel > header span { color: #697587; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.ticket-create-panel > header strong { font-size: 13px; }
+.ticket-create-panel > header button { border: 0; background: transparent; color: #8f99a9; font-size: 20px; cursor: pointer; }
+.ticket-create-panel label { display: grid; gap: 6px; color: #9da8b8; font-size: 11px; font-weight: 600; }
+.ticket-create-panel label > span { color: #667284; font-weight: 400; }
+.ticket-create-panel input,
+.ticket-create-panel select,
+.ticket-create-panel textarea { width: 100%; box-sizing: border-box; border: 1px solid #303746; border-radius: 7px; background: #0d1117; color: #dce3ed; padding: 9px 10px; font: inherit; outline: none; }
+.ticket-create-panel textarea { resize: vertical; }
+.ticket-create-panel input:focus,
+.ticket-create-panel select:focus,
+.ticket-create-panel textarea:focus { border-color: #6473a8; box-shadow: 0 0 0 2px rgba(100,115,168,.18); }
+.ticket-create-grid { display: grid; gap: 10px; }
+.ticket-create-grid.four-up { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ticket-create-checkbox { display: flex !important; align-items: center; gap: 8px !important; }
+.ticket-create-checkbox input { width: auto; }
+.ticket-create-panel > footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 2px; }
+.ticket-create-panel > footer button { border: 1px solid #303746; border-radius: 7px; background: #171c24; color: #d8e0eb; padding: 8px 11px; cursor: pointer; }
+.ticket-create-panel > footer button[type="submit"] { background: #28334f; border-color: #46557c; color: #eef2ff; }
+.ticket-create-panel button:disabled { opacity: .5; cursor: not-allowed; }
+
 @media (max-width: 760px) {
   .ticket-actions-popover,
   .ticket-actions-popover.expanded { right: auto; left: 0; width: min(420px, calc(100vw - 40px)); }
+  .ticket-create-panel { right: -8px; width: min(520px, calc(100vw - 32px)); }
+  .ticket-create-grid.four-up { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

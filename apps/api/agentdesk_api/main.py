@@ -20,6 +20,7 @@ from .schemas import (
     TicketEventRead,
     TicketRead,
     TicketUpdate,
+    WorkspaceAdoptWork,
     WorkspaceCreate,
     WorkspaceGitStatus,
     WorkspacePublishResult,
@@ -77,6 +78,8 @@ def remove_repository_clone(repository_id: str, db: Session = Depends(get_db)) -
 def list_workspaces(repository_id: str, db: Session = Depends(get_db)) -> list[Workspace]: return workspace_service.list_workspaces(db, repository_id)
 @app.post("/repositories/{repository_id}/workspaces", response_model=WorkspaceRead, status_code=status.HTTP_201_CREATED)
 def create_workspace(repository_id: str, payload: WorkspaceCreate, db: Session = Depends(get_db)) -> Workspace: return workspace_service.create_workspace(db, repository_id, payload)
+@app.post("/repositories/{repository_id}/workspaces/adopt", response_model=WorkspaceRead, status_code=status.HTTP_201_CREATED)
+def adopt_existing_work(repository_id: str, payload: WorkspaceAdoptWork, db: Session = Depends(get_db)) -> Workspace: return workspace_service.adopt_existing_work(db, repository_id, payload)
 @app.get("/workspaces/{workspace_id}/status", response_model=WorkspaceGitStatus)
 def get_workspace_status(workspace_id: str, db: Session = Depends(get_db)) -> WorkspaceGitStatus: return workspace_service.workspace_status(db, workspace_id)
 @app.get("/workspaces/{workspace_id}/review", response_model=WorkspaceReview)
@@ -117,7 +120,6 @@ def update_agent_run(run_id: str, payload: AgentRunUpdate, db: Session = Depends
 def append_agent_run_log(run_id: str, payload: AgentRunLogAppend, db: Session = Depends(get_db)) -> AgentRun: return agent_service.append_log(db, run_id, payload)
 @app.post("/runs/{run_id}/execute", response_model=AgentRunRead)
 def execute_agent_run(run_id: str, db: Session = Depends(get_db)) -> AgentRun: return executor_service.execute_local_run(db, run_id)
-
 @app.patch("/tickets/{ticket_id}", response_model=TicketRead)
 def update_ticket(ticket_id: str, payload: TicketUpdate, db: Session = Depends(get_db)) -> Ticket: return ticket_service.update_ticket(db, ticket_id, payload)
 @app.delete("/tickets/{ticket_id}", status_code=status.HTTP_204_NO_CONTENT)

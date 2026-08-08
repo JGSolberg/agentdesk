@@ -30,6 +30,10 @@ api:
 web:
     pnpm --dir apps/web dev
 
+# Start API and web in separate terminals
+run:
+    cmd /c run.cmd
+
 # Build the web app
 web-build:
     pnpm --dir apps/web build

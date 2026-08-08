@@ -10,7 +10,7 @@ from ..agent_models import AgentRun, RunStatus
 from ..agent_schemas import AgentRunLogAppend, AgentRunUpdate
 from ..models import TicketStatus, Workspace, WorkspaceStatus
 from ..schemas import TicketUpdate
-from . import agent_service, review_service, ticket_service
+from . import agent_service, integration_service, review_service, ticket_service
 from .agent_adapters import get_adapter
 
 
@@ -31,11 +31,6 @@ def execute_local_run(db: Session, run_id: str) -> AgentRun:
     if not adapter:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"No executor adapter is registered for provider '{agent.provider}'")
 
-    try:
-        plan = adapter.build_plan(agent, run, workspace)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
-
     ticket = ticket_service.require_ticket(db, run.ticket_id)
     if ticket.status in {
         TicketStatus.BACKLOG,
@@ -47,6 +42,26 @@ def execute_local_run(db: Session, run_id: str) -> AgentRun:
         ticket_service.update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.IN_PROGRESS))
 
     agent_service.update_run(db, run.id, AgentRunUpdate(status=RunStatus.RUNNING, error=None))
+
+    try:
+        default_branch = integration_service.refresh_default_branch(db, workspace)
+        agent_service.append_log(
+            db,
+            run.id,
+            AgentRunLogAppend(level="git", message=f"Fetched latest origin/{default_branch} before agent execution"),
+        )
+    except HTTPException as exc:
+        agent_service.append_log(
+            db,
+            run.id,
+            AgentRunLogAppend(level="warning", message=f"Unable to refresh the default branch before execution: {exc.detail}"),
+        )
+
+    try:
+        plan = adapter.build_plan(agent, run, workspace)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
     agent_service.append_log(db, run.id, AgentRunLogAppend(level="info", message=f"Executing {agent.name} ({agent.provider}) in {workspace.path}"))
 
     env = os.environ.copy()
@@ -85,6 +100,14 @@ def execute_local_run(db: Session, run_id: str) -> AgentRun:
         if message:
             agent_service.append_log(db, run.id, AgentRunLogAppend(level=level[:30], message=message))
 
+    unresolved_conflicts = integration_service.has_unmerged_conflicts(workspace)
+    if unresolved_conflicts:
+        message = "Agent finished with unresolved Git merge conflicts. Resolve them before this ticket can return to Review."
+        agent_service.append_log(db, run.id, AgentRunLogAppend(level="needs_human", message=message))
+        final_status = RunStatus.NEEDS_HUMAN
+        ticket_service.update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.NEEDS_HUMAN))
+        return agent_service.update_run(db, run.id, AgentRunUpdate(status=final_status, result=outcome.result, error=message))
+
     if outcome.needs_human:
         final_status = RunStatus.NEEDS_HUMAN
         ticket_service.update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.NEEDS_HUMAN))
@@ -92,6 +115,22 @@ def execute_local_run(db: Session, run_id: str) -> AgentRun:
         final_status = RunStatus.SUCCEEDED if outcome.error is None and completed.returncode == 0 else RunStatus.FAILED
         if final_status == RunStatus.SUCCEEDED and review_service.has_reviewable_changes(db, workspace.id):
             ticket_service.update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.REVIEW))
+            review = review_service.workspace_review(db, workspace.id)
+            if review.pull_request_url and review.unpublished:
+                try:
+                    published = review_service.publish_workspace(db, workspace.id)
+                    label = f"PR #{published.pull_request_number}" if published.pull_request_number else "existing PR"
+                    agent_service.append_log(
+                        db,
+                        run.id,
+                        AgentRunLogAppend(level="git", message=f"Updated {label} with the successful agent run"),
+                    )
+                except HTTPException as exc:
+                    agent_service.append_log(
+                        db,
+                        run.id,
+                        AgentRunLogAppend(level="warning", message=f"Agent work is ready for review but could not update the existing PR automatically: {exc.detail}"),
+                    )
         elif final_status == RunStatus.FAILED:
             ticket_service.update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.AGENT_FAILED))
 
