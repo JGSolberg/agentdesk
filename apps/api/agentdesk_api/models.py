@@ -41,6 +41,13 @@ class TicketPriority(StrEnum):
     CRITICAL = "critical"
 
 
+class RepositoryProvider(StrEnum):
+    LOCAL = "local"
+    GITHUB = "github"
+    GITLAB = "gitlab"
+    OTHER = "other"
+
+
 def project_ticket_prefix(name: str) -> str:
     words = re.findall(r"[A-Z]+(?=[A-Z][a-z]|\b)|[A-Z]?[a-z]+|\d+", name)
     if len(words) >= 2:
@@ -74,6 +81,29 @@ class Project(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
     tickets: Mapped[list[Ticket]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    repositories: Mapped[list[Repository]] = relationship(back_populates="project", cascade="all, delete-orphan")
+
+
+class Repository(Base):
+    __tablename__ = "repositories"
+    __table_args__ = (UniqueConstraint("project_id", "local_path", name="uq_repository_project_path"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    local_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    provider: Mapped[RepositoryProvider] = mapped_column(
+        SqlEnum(RepositoryProvider, native_enum=False, values_callable=lambda enum: [item.value for item in enum]),
+        default=RepositoryProvider.LOCAL,
+        nullable=False,
+    )
+    remote_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    default_branch: Mapped[str] = mapped_column(String(255), default="main", nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+    project: Mapped[Project] = relationship(back_populates="repositories")
 
 
 class Ticket(Base):
