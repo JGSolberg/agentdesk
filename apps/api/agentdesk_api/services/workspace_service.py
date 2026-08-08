@@ -90,6 +90,21 @@ def _branch_worktree_path(managed_clone: Path, branch: str) -> Path | None:
     return None
 
 
+def _remove_path_long_safe(path: Path) -> None:
+    """Remove a workspace tree, including Windows paths beyond MAX_PATH."""
+    if not path.exists():
+        return
+    target = str(path)
+    if os.name == "nt" and not target.startswith("\\\\?\\"):
+        target = f"\\\\?\\{target}"
+    try:
+        shutil.rmtree(target)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise HTTPException(status_code=502, detail=f"Unable to remove workspace directory: {exc}") from exc
+
+
 def _prepare_reactivation_path(repository_id: str, managed_clone: Path, workspace: Workspace) -> Path:
     root = _workspace_root(repository_id)
     path = Path(workspace.path).resolve()
@@ -108,21 +123,6 @@ def _prepare_reactivation_path(repository_id: str, managed_clone: Path, workspac
     return path
 
 
-def _remove_path_long_safe(path: Path) -> None:
-    """Remove a workspace tree, including Windows paths beyond MAX_PATH."""
-    if not path.exists():
-        return
-    target = str(path)
-    if os.name == "nt" and not target.startswith("\\\\?\\"):
-        target = f"\\\\?\\{target}"
-    try:
-        shutil.rmtree(target)
-    except FileNotFoundError:
-        return
-    except OSError as exc:
-        raise HTTPException(status_code=502, detail=f"Unable to remove workspace directory: {exc}") from exc
-
-
 def workspace_status(db: Session, workspace_id: str) -> WorkspaceGitStatus:
     workspace = require_workspace(db, workspace_id)
     if workspace.status != WorkspaceStatus.ACTIVE:
@@ -130,6 +130,10 @@ def workspace_status(db: Session, workspace_id: str) -> WorkspaceGitStatus:
     path = Path(workspace.path).resolve()
     if not path.exists():
         raise HTTPException(status_code=409, detail="Workspace path is missing")
+
+    valid = _git_output(["rev-parse", "--is-inside-work-tree"], cwd=path, allow_failure=True)
+    if valid.lower() != "true":
+        raise HTTPException(status_code=409, detail="Workspace cleanup is incomplete. Git worktree metadata is unavailable; use Sync & finalize to finish cleanup.")
 
     porcelain = _git_output(["status", "--porcelain=v1"], cwd=path)
     staged = modified = untracked = 0
