@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..agent_models import Agent, AgentRun, RunStatus
 from ..agent_schemas import AgentCreate, AgentRunCreate, AgentRunLogAppend, AgentRunUpdate
-from ..models import TicketEvent, Workspace
+from ..models import TicketEvent, TicketStatus, TicketType, Workspace
 from . import project_service, ticket_service
 
 
@@ -61,8 +61,25 @@ def _ticket_snapshot(ticket) -> dict:
     }
 
 
+def _ensure_actionable(ticket, allow_non_actionable: bool) -> None:
+    reasons: list[str] = []
+    if ticket.archived:
+        reasons.append("archived")
+    if ticket.type == TicketType.EPIC:
+        reasons.append("an epic")
+    if ticket.status in {TicketStatus.DONE, TicketStatus.CANCELLED}:
+        reasons.append(ticket.status.value)
+    if reasons and not allow_non_actionable:
+        detail = ", ".join(reasons)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Ticket is not normally actionable by an agent ({detail}). Explicitly allow a non-actionable rerun to continue.",
+        )
+
+
 def create_run(db: Session, ticket_id: str, payload: AgentRunCreate) -> AgentRun:
     ticket = ticket_service.require_ticket(db, ticket_id)
+    _ensure_actionable(ticket, payload.allow_non_actionable)
     agent = require_agent(db, payload.agent_id)
     if agent.project_id != ticket.project_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Agent and ticket must belong to the same project")
@@ -83,7 +100,7 @@ def create_run(db: Session, ticket_id: str, payload: AgentRunCreate) -> AgentRun
         logs=[],
     )
     db.add(run)
-    db.add(TicketEvent(ticket_id=ticket.id, event_type="agent_run_created", payload={"run_id": run.id, "agent_id": agent.id, "agent_name": agent.name}))
+    db.add(TicketEvent(ticket_id=ticket.id, event_type="agent_run_created", payload={"run_id": run.id, "agent_id": agent.id, "agent_name": agent.name, "non_actionable_override": payload.allow_non_actionable}))
     db.commit()
     db.refresh(run)
     return run

@@ -95,6 +95,31 @@ class WorkspaceGitStatus(BaseModel):
     head_message: str
 
 
+class WorkspaceReviewFile(BaseModel):
+    path: str
+    status: str
+
+
+class WorkspaceReview(BaseModel):
+    workspace_id: str
+    branch: str
+    clean: bool
+    files: list[WorkspaceReviewFile]
+    additions: int
+    deletions: int
+    diff: str
+    pull_request_url: str | None = None
+    pull_request_number: int | None = None
+
+
+class WorkspacePublishResult(BaseModel):
+    branch: str
+    commit_sha: str | None
+    pull_request_url: str
+    pull_request_number: int | None
+    created: bool
+
+
 class TicketCreate(BaseModel):
     title: str = Field(min_length=1, max_length=300)
     type: TicketType = TicketType.STORY

@@ -1,11 +1,24 @@
+import json
+import subprocess
 import sys
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from agentdesk_api.agent_models import Agent, AgentRun
 from agentdesk_api.database import SessionLocal
 from agentdesk_api.main import app
 from agentdesk_api.models import Workspace, WorkspaceStatus
+from agentdesk_api.services.agent_adapters import CodexCliAdapter
+
+
+def _init_git_repo(path: Path) -> None:
+    subprocess.run(["git", "init"], cwd=path, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "config", "user.email", "agentdesk-test@example.invalid"], cwd=path, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "config", "user.name", "AgentDesk Test"], cwd=path, check=True, capture_output=True, text=True)
+    (path / "README.md").write_text("baseline\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=path, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "commit", "-m", "baseline"], cwd=path, check=True, capture_output=True, text=True)
 
 
 def test_agent_run_lifecycle_and_context_snapshot() -> None:
@@ -43,6 +56,23 @@ def test_agent_run_lifecycle_and_context_snapshot() -> None:
         assert any(event["event_type"] == "agent_run_updated" for event in events)
 
 
+def test_agent_run_requires_explicit_override_for_done_ticket() -> None:
+    with TestClient(app) as client:
+        project = client.post("/projects", json={"name": "Run Guard"}).json()
+        ticket = client.post(f"/projects/{project['id']}/tickets", json={"title": "Already shipped", "status": "done"}).json()
+        agent = client.post(f"/projects/{project['id']}/agents", json={"name": "Reviewer", "provider": "manual"}).json()
+
+        blocked = client.post(f"/tickets/{ticket['id']}/runs", json={"agent_id": agent["id"]})
+        assert blocked.status_code == 409
+        assert "not normally actionable" in blocked.json()["detail"]
+
+        allowed = client.post(f"/tickets/{ticket['id']}/runs", json={"agent_id": agent["id"], "allow_non_actionable": True})
+        assert allowed.status_code == 201
+        events = client.get(f"/tickets/{ticket['id']}/events").json()
+        created = [event for event in events if event["event_type"] == "agent_run_created"][-1]
+        assert created["payload"]["non_actionable_override"] is True
+
+
 def test_agent_and_ticket_must_share_project() -> None:
     with TestClient(app) as client:
         project_a = client.post("/projects", json={"name": "Alpha"}).json()
@@ -54,6 +84,7 @@ def test_agent_and_ticket_must_share_project() -> None:
 
 
 def test_local_command_executor_uses_workspace_and_ticket_context(tmp_path: Path) -> None:
+    _init_git_repo(tmp_path)
     with TestClient(app) as client:
         project = client.post("/projects", json={"name": "Executor"}).json()
         ticket = client.post(f"/projects/{project['id']}/tickets", json={"title": "Execute locally"}).json()
@@ -77,3 +108,63 @@ def test_local_command_executor_uses_workspace_and_ticket_context(tmp_path: Path
         assert body["started_at"] is not None
         assert body["finished_at"] is not None
         assert any(entry["level"] == "stdout" and ticket["ticket_key"] in entry["message"] for entry in body["logs"])
+
+
+def test_codex_adapter_builds_sandboxed_json_exec_plan(tmp_path: Path) -> None:
+    adapter = CodexCliAdapter()
+    agent = Agent(id="agent-1", project_id="project-1", name="Codex", provider="codex", model="gpt-5.6-sol")
+    run = AgentRun(
+        id="run-1",
+        ticket_id="ticket-1",
+        agent_id="agent-1",
+        context_snapshot={
+            "ticket_key": "AD-42",
+            "title": "Provider adapters",
+            "type": "story",
+            "priority": "high",
+            "goal": "Run Codex through a provider adapter",
+            "description": "Keep executor provider-neutral",
+            "acceptance_criteria": ["Codex can edit the worktree", "Telemetry is captured"],
+            "definition_of_done": ["Tests pass"],
+            "constraints": ["Do not push"],
+            "context": [],
+            "relevant_files": ["apps/api"],
+        },
+    )
+    workspace = Workspace(id="workspace-1", project_id="project-1", repository_id="repo-1", ticket_id="ticket-1", name="AD-42", branch="agent/AD-42", path=str(tmp_path), status=WorkspaceStatus.ACTIVE)
+
+    plan = adapter.build_plan(agent, run, workspace)
+
+    assert plan.shell is False
+    assert isinstance(plan.command, list)
+    assert Path(plan.command[0]).stem.lower() == "codex"
+    assert plan.command[1:5] == ["exec", "--approve-for-me", "--json", "--ephemeral"]
+    assert "--sandbox" not in plan.command
+    assert plan.command[5:7] == ["--model", "gpt-5.6-sol"]
+    assert plan.command[-1] == "-"
+    assert plan.stdin is not None
+    assert "AD-42 — Provider adapters" in plan.stdin
+    assert "Do not push, merge, or create a pull request." in plan.stdin
+    assert plan.environment["AGENTDESK_TICKET_KEY"] == "AD-42"
+    assert Path(plan.environment["TMP"]).is_relative_to(tmp_path)
+    assert Path(plan.environment["UV_CACHE_DIR"]).is_relative_to(tmp_path)
+    assert Path(plan.environment["TMP"]).is_dir()
+    assert Path(plan.environment["UV_CACHE_DIR"]).is_dir()
+
+
+def test_codex_adapter_parses_jsonl_telemetry_and_final_message() -> None:
+    adapter = CodexCliAdapter()
+    stdout = "\n".join([
+        json.dumps({"type": "thread.started", "thread_id": "thread-123"}),
+        json.dumps({"type": "item.completed", "item": {"type": "command_execution", "command": "uv run pytest", "status": "completed"}}),
+        json.dumps({"type": "item.completed", "item": {"type": "agent_message", "text": "Implemented the adapter and tests pass."}}),
+        json.dumps({"type": "turn.completed", "usage": {"input_tokens": 100, "output_tokens": 25}}),
+    ])
+
+    outcome = adapter.parse_output(stdout, "", 0)
+
+    assert outcome.error is None
+    assert outcome.result == "Implemented the adapter and tests pass."
+    assert ("codex", "Thread thread-123") in outcome.logs
+    assert any(level == "command" and "uv run pytest" in message for level, message in outcome.logs)
+    assert any(level == "usage" and "input_tokens" in message for level, message in outcome.logs)
