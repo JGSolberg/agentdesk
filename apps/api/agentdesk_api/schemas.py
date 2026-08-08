@@ -101,6 +101,8 @@ class WorkspaceReview(BaseModel):
     additions: int
     deletions: int
     diff: str
+    pull_request_url: str | None = None
+    pull_request_number: int | None = None
 
 
 class WorkspacePublishResult(BaseModel):
