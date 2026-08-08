@@ -17,7 +17,7 @@ from .schemas import (
     TicketEventRead,
     TicketRead,
     TicketUpdate,
-    WorkspaceAdoptPr,
+    WorkspaceAdoptWork,
     WorkspaceCreate,
     WorkspaceGitStatus,
     WorkspacePublishResult,
@@ -65,8 +65,8 @@ def remove_repository_clone(repository_id: str, db: Session = Depends(get_db)) -
 def list_workspaces(repository_id: str, db: Session = Depends(get_db)) -> list[Workspace]: return workspace_service.list_workspaces(db, repository_id)
 @app.post("/repositories/{repository_id}/workspaces", response_model=WorkspaceRead, status_code=status.HTTP_201_CREATED)
 def create_workspace(repository_id: str, payload: WorkspaceCreate, db: Session = Depends(get_db)) -> Workspace: return workspace_service.create_workspace(db, repository_id, payload)
-@app.post("/repositories/{repository_id}/workspaces/adopt-pr", response_model=WorkspaceRead, status_code=status.HTTP_201_CREATED)
-def adopt_pull_request(repository_id: str, payload: WorkspaceAdoptPr, db: Session = Depends(get_db)) -> Workspace: return workspace_service.adopt_pull_request(db, repository_id, payload)
+@app.post("/repositories/{repository_id}/workspaces/adopt", response_model=WorkspaceRead, status_code=status.HTTP_201_CREATED)
+def adopt_existing_work(repository_id: str, payload: WorkspaceAdoptWork, db: Session = Depends(get_db)) -> Workspace: return workspace_service.adopt_existing_work(db, repository_id, payload)
 @app.get("/workspaces/{workspace_id}/status", response_model=WorkspaceGitStatus)
 def get_workspace_status(workspace_id: str, db: Session = Depends(get_db)) -> WorkspaceGitStatus: return workspace_service.workspace_status(db, workspace_id)
 @app.get("/workspaces/{workspace_id}/review", response_model=WorkspaceReview)
