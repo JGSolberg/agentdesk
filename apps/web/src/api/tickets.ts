@@ -76,6 +76,19 @@ export type TicketEvent = {
   created_at: string;
 };
 
+export type GitArtifact = {
+  id: string;
+  ticket_id: string;
+  repository_id: string | null;
+  kind: "branch" | "commit" | "pull_request" | "file";
+  identifier: string;
+  title: string | null;
+  url: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -108,6 +121,10 @@ export function getTicket(ticketId: string): Promise<Ticket> {
 
 export function listTicketEvents(ticketId: string): Promise<TicketEvent[]> {
   return request<TicketEvent[]>(`/tickets/${ticketId}/events`);
+}
+
+export function listTicketArtifacts(ticketId: string): Promise<GitArtifact[]> {
+  return request<GitArtifact[]>(`/tickets/${ticketId}/artifacts`);
 }
 
 export function createTicket(projectId: string, payload: TicketCreate): Promise<Ticket> {
