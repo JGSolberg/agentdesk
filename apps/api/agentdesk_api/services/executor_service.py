@@ -115,6 +115,22 @@ def execute_local_run(db: Session, run_id: str) -> AgentRun:
         final_status = RunStatus.SUCCEEDED if outcome.error is None and completed.returncode == 0 else RunStatus.FAILED
         if final_status == RunStatus.SUCCEEDED and review_service.has_reviewable_changes(db, workspace.id):
             ticket_service.update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.REVIEW))
+            review = review_service.workspace_review(db, workspace.id)
+            if review.pull_request_url and review.unpublished:
+                try:
+                    published = review_service.publish_workspace(db, workspace.id)
+                    label = f"PR #{published.pull_request_number}" if published.pull_request_number else "existing PR"
+                    agent_service.append_log(
+                        db,
+                        run.id,
+                        AgentRunLogAppend(level="git", message=f"Updated {label} with the successful agent run"),
+                    )
+                except HTTPException as exc:
+                    agent_service.append_log(
+                        db,
+                        run.id,
+                        AgentRunLogAppend(level="warning", message=f"Agent work is ready for review but could not update the existing PR automatically: {exc.detail}"),
+                    )
         elif final_status == RunStatus.FAILED:
             ticket_service.update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.AGENT_FAILED))
 
