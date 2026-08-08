@@ -13,18 +13,7 @@ export type Workspace = {
   updated_at: string;
 };
 
-export type WorkspaceGitStatus = {
-  branch: string;
-  clean: boolean;
-  staged: number;
-  modified: number;
-  untracked: number;
-  ahead: number | null;
-  behind: number | null;
-  head_sha: string;
-  head_message: string;
-};
-
+export type WorkspaceGitStatus = { branch: string; clean: boolean; staged: number; modified: number; untracked: number; ahead: number | null; behind: number | null; head_sha: string; head_message: string };
 export type WorkspaceReviewFile = { path: string; status: string };
 export type WorkspaceReview = { workspace_id: string; branch: string; clean: boolean; unpublished: boolean; files: WorkspaceReviewFile[]; additions: number; deletions: number; diff: string; pull_request_url: string | null; pull_request_number: number | null; pull_request_merged: boolean };
 export type WorkspacePublishResult = { branch: string; commit_sha: string | null; pull_request_url: string; pull_request_number: number | null; created: boolean };
@@ -35,7 +24,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> { con
 
 export function listWorkspaces(repositoryId: string): Promise<Workspace[]> { return request<Workspace[]>(`/repositories/${repositoryId}/workspaces`); }
 export function createWorkspace(repositoryId: string, payload: { ticket_id?: string | null; name?: string | null; branch?: string | null }): Promise<Workspace> { return request<Workspace>(`/repositories/${repositoryId}/workspaces`, { method: "POST", body: JSON.stringify(payload) }); }
-export function adoptPullRequest(repositoryId: string, payload: { ticket_id: string; pull_request: string }): Promise<Workspace> { return request<Workspace>(`/repositories/${repositoryId}/workspaces/adopt-pr`, { method: "POST", body: JSON.stringify(payload) }); }
+export function adoptExistingWork(repositoryId: string, payload: { ticket_id: string; branch?: string | null; pull_request?: string | null }): Promise<Workspace> { return request<Workspace>(`/repositories/${repositoryId}/workspaces/adopt`, { method: "POST", body: JSON.stringify(payload) }); }
 export function getWorkspaceStatus(workspaceId: string): Promise<WorkspaceGitStatus> { return request<WorkspaceGitStatus>(`/workspaces/${workspaceId}/status`); }
 export function getWorkspaceReview(workspaceId: string): Promise<WorkspaceReview> { return request<WorkspaceReview>(`/workspaces/${workspaceId}/review`); }
 export function publishWorkspace(workspaceId: string): Promise<WorkspacePublishResult> { return request<WorkspacePublishResult>(`/workspaces/${workspaceId}/publish`, { method: "POST" }); }
