@@ -3,7 +3,7 @@ from enum import Enum
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from ..models import Project, Ticket, TicketEvent, TicketStatus, project_ticket_prefix
+from ..models import Project, Ticket, TicketEvent, TicketStatus, WorkspaceStatus, project_ticket_prefix
 from ..repositories import event_repository, ticket_repository
 from ..schemas import TicketCreate, TicketUpdate
 from .project_service import require_project
@@ -32,10 +32,7 @@ def _json_value(value):
 
 
 def _record_event(db: Session, ticket_id: str, event_type: str, payload: dict) -> None:
-    event_repository.add(
-        db,
-        TicketEvent(ticket_id=ticket_id, event_type=event_type, actor="user", payload=_json_value(payload)),
-    )
+    event_repository.add(db, TicketEvent(ticket_id=ticket_id, event_type=event_type, actor="user", payload=_json_value(payload)))
 
 
 def _validated_parent(db: Session, project_id: str, parent_id: str | None, ticket_id: str | None = None) -> Ticket | None:
@@ -46,7 +43,6 @@ def _validated_parent(db: Session, project_id: str, parent_id: str | None, ticke
         raise HTTPException(status_code=400, detail="Parent ticket not found")
     if parent.project_id != project_id:
         raise HTTPException(status_code=400, detail="Parent ticket must belong to the same project")
-
     cursor = parent
     while ticket_id is not None and cursor is not None:
         if cursor.id == ticket_id:
@@ -110,9 +106,9 @@ def create_ticket(db: Session, project_id: str, payload: TicketCreate) -> Ticket
     return ticket
 
 
-def list_tickets(db: Session, project_id: str) -> list[Ticket]:
+def list_tickets(db: Session, project_id: str, *, include_archived: bool = False) -> list[Ticket]:
     require_project(db, project_id)
-    return ticket_repository.list_for_project(db, project_id)
+    return ticket_repository.list_for_project(db, project_id, include_archived=include_archived)
 
 
 def list_ready_tickets(db: Session, project_id: str) -> list[Ticket]:
@@ -127,28 +123,39 @@ def update_ticket(db: Session, ticket_id: str, payload: TicketUpdate) -> Ticket:
         _validated_parent(db, ticket.project_id, changes["parent_id"], ticket.id)
     if changes.get("status") == TicketStatus.READY and ticket.is_blocked:
         raise HTTPException(status_code=409, detail="Ticket cannot be Ready while dependencies are incomplete")
-
     before = {field: getattr(ticket, field) for field in changes}
     status_changed = "status" in changes and changes["status"] != ticket.status
+    archived_changed = "archived" in changes and changes["archived"] != ticket.archived
     for field, value in changes.items():
         setattr(ticket, field, value)
     if status_changed:
         _reconcile_dependents(ticket)
     ticket = ticket_repository.save(db, ticket)
-    if changes:
-        _record_event(
-            db,
-            ticket.id,
-            "ticket_updated",
-            {
-                "changes": {
-                    field: {"from": before[field], "to": getattr(ticket, field)}
-                    for field in changes
-                    if before[field] != getattr(ticket, field)
-                }
-            },
-        )
+    if status_changed and ticket.status == TicketStatus.CANCELLED:
+        _record_event(db, ticket.id, "ticket_cancelled", {"from": before["status"]})
+    elif status_changed and before["status"] == TicketStatus.CANCELLED:
+        _record_event(db, ticket.id, "ticket_reopened", {"to": ticket.status})
+    if archived_changed:
+        _record_event(db, ticket.id, "ticket_archived" if ticket.archived else "ticket_unarchived", {})
+    visible_changes = {
+        field: {"from": before[field], "to": getattr(ticket, field)}
+        for field in changes
+        if before[field] != getattr(ticket, field) and field not in {"archived"}
+    }
+    if visible_changes and not (status_changed and (ticket.status == TicketStatus.CANCELLED or before["status"] == TicketStatus.CANCELLED)):
+        _record_event(db, ticket.id, "ticket_updated", {"changes": visible_changes})
     return ticket
+
+
+def delete_ticket(db: Session, ticket_id: str) -> None:
+    ticket = require_ticket(db, ticket_id)
+    if ticket.children:
+        raise HTTPException(status_code=409, detail="Delete or re-parent child tickets first")
+    if ticket.dependencies or ticket.dependents:
+        raise HTTPException(status_code=409, detail="Remove ticket dependency relationships first")
+    if any(workspace.status == WorkspaceStatus.ACTIVE for workspace in ticket.workspaces):
+        raise HTTPException(status_code=409, detail="Remove the active workspace before deleting this ticket")
+    ticket_repository.delete(db, ticket)
 
 
 def add_dependency(db: Session, ticket_id: str, dependency_id: str) -> Ticket:
@@ -162,7 +169,6 @@ def add_dependency(db: Session, ticket_id: str, dependency_id: str) -> Ticket:
         return ticket
     if _depends_on(dependency, ticket.id):
         raise HTTPException(status_code=400, detail="Ticket dependency graph cannot contain a cycle")
-
     ticket.dependencies.append(dependency)
     _reconcile_waiting_status(ticket)
     ticket = ticket_repository.save(db, ticket)
