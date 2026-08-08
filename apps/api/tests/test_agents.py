@@ -127,8 +127,8 @@ def test_codex_adapter_builds_sandboxed_json_exec_plan(tmp_path: Path) -> None:
     assert plan.shell is False
     assert isinstance(plan.command, list)
     assert Path(plan.command[0]).stem.lower() == "codex"
-    assert plan.command[1:6] == ["exec", "--sandbox", "workspace-write", "--json", "--ephemeral"]
-    assert plan.command[6:8] == ["--model", "gpt-5.6-sol"]
+    assert plan.command[1:7] == ["exec", "--sandbox", "workspace-write", "--approve-for-me", "--json", "--ephemeral"]
+    assert plan.command[7:9] == ["--model", "gpt-5.6-sol"]
     assert plan.command[-1] == "-"
     assert plan.stdin is not None
     assert "AD-42 — Provider adapters" in plan.stdin
