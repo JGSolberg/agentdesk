@@ -16,7 +16,9 @@
 .ticket-modal-header button { border: 0; background: transparent; color: #8d98a8; font-size: 24px; line-height: 1; cursor: pointer; }
 .ticket-modal-body { padding: 20px; }
 .ticket-modal-body .detail-panel { border: 0; padding: 0; background: transparent; }
-.ticket-modal-body .ticket-lifecycle-wrap { margin: 0; }
+.ticket-modal-body .relationship-panel { width: 100%; margin: 0; }
+.lifecycle-modal-content { display: grid; gap: 18px; }
+.lifecycle-modal-content > p { margin: 0; color: #8f99a9; font-size: 13px; line-height: 1.6; }
 .ticket-modal-body .ticket-lifecycle-actions { justify-content: flex-start; flex-wrap: wrap; }
 .ticket-modal-body .ticket-lifecycle-note,
 .ticket-modal-body .ticket-lifecycle-error { text-align: left; }
