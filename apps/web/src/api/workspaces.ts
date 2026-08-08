@@ -41,6 +41,7 @@ export type WorkspaceReview = {
   diff: string;
   pull_request_url: string | null;
   pull_request_number: number | null;
+  pull_request_merged: boolean;
 };
 
 export type WorkspacePublishResult = {
