@@ -50,12 +50,14 @@ def execute_local_run(db: Session, run_id: str) -> AgentRun:
             input=plan.stdin,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=1800,
         )
     except subprocess.TimeoutExpired as exc:
         message = "Agent execution timed out after 30 minutes"
         agent_service.append_log(db, run.id, AgentRunLogAppend(level="error", message=message))
-        stdout = exc.stdout.decode(errors="replace") if isinstance(exc.stdout, bytes) else exc.stdout
+        stdout = exc.stdout.decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else exc.stdout
         return agent_service.update_run(db, run.id, AgentRunUpdate(status=RunStatus.FAILED, error=message, result=stdout or None))
     except FileNotFoundError:
         executable = plan.command[0] if isinstance(plan.command, list) and plan.command else str(plan.command)
