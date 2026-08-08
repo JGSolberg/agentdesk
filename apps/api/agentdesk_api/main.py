@@ -10,6 +10,7 @@ from .schemas import (
     RepositoryCreate,
     RepositoryRead,
     RepositoryUpdate,
+    SearchResult,
     TicketCreate,
     TicketEventRead,
     TicketRead,
@@ -18,7 +19,7 @@ from .schemas import (
     WorkspaceGitStatus,
     WorkspaceRead,
 )
-from .services import project_service, repository_service, ticket_service, workspace_service
+from .services import project_service, repository_service, search_service, ticket_service, workspace_service
 
 app = FastAPI(title="AgentDesk API", version="0.1.0")
 
@@ -26,6 +27,15 @@ app = FastAPI(title="AgentDesk API", version="0.1.0")
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/search", response_model=list[SearchResult])
+def global_search(
+    q: str = Query(min_length=1, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+    db: Session = Depends(get_db),
+) -> list[SearchResult]:
+    return search_service.search(db, q, limit)
 
 
 @app.post("/projects", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
@@ -110,11 +120,7 @@ def create_ticket(project_id: str, payload: TicketCreate, db: Session = Depends(
 
 
 @app.get("/projects/{project_id}/tickets", response_model=list[TicketRead])
-def list_tickets(
-    project_id: str,
-    include_archived: bool = Query(default=False),
-    db: Session = Depends(get_db),
-) -> list[Ticket]:
+def list_tickets(project_id: str, include_archived: bool = Query(default=False), db: Session = Depends(get_db)) -> list[Ticket]:
     return ticket_service.list_tickets(db, project_id, include_archived=include_archived)
 
 
