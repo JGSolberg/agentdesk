@@ -1,4 +1,5 @@
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -9,6 +10,15 @@ from agentdesk_api.database import SessionLocal
 from agentdesk_api.main import app
 from agentdesk_api.models import Workspace, WorkspaceStatus
 from agentdesk_api.services.agent_adapters import CodexCliAdapter
+
+
+def _init_git_repo(path: Path) -> None:
+    subprocess.run(["git", "init"], cwd=path, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "config", "user.email", "agentdesk-test@example.invalid"], cwd=path, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "config", "user.name", "AgentDesk Test"], cwd=path, check=True, capture_output=True, text=True)
+    (path / "README.md").write_text("baseline\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=path, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "commit", "-m", "baseline"], cwd=path, check=True, capture_output=True, text=True)
 
 
 def test_agent_run_lifecycle_and_context_snapshot() -> None:
@@ -74,6 +84,7 @@ def test_agent_and_ticket_must_share_project() -> None:
 
 
 def test_local_command_executor_uses_workspace_and_ticket_context(tmp_path: Path) -> None:
+    _init_git_repo(tmp_path)
     with TestClient(app) as client:
         project = client.post("/projects", json={"name": "Executor"}).json()
         ticket = client.post(f"/projects/{project['id']}/tickets", json={"title": "Execute locally"}).json()
