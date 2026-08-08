@@ -8,6 +8,7 @@ import "./styles.css";
 import "./board.css";
 import "./ticket-detail.css";
 import "./ticket-lifecycle.css";
+import "./ticket-actions.css";
 import "./repositories.css";
 import "./command-palette.css";
 
