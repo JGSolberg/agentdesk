@@ -11,6 +11,7 @@ import "./ticket-lifecycle.css";
 import "./ticket-actions.css";
 import "./repositories.css";
 import "./command-palette.css";
+import "./agent-runs.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
