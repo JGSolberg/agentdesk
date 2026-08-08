@@ -206,3 +206,7 @@ class TicketEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
 
     ticket: Mapped[Ticket] = relationship(back_populates="events")
+
+
+# Register execution subsystem tables on the shared SQLAlchemy metadata.
+from . import agent_models as agent_models  # noqa: E402,F401

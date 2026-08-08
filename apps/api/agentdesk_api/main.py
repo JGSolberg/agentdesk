@@ -1,6 +1,8 @@
 from fastapi import Depends, FastAPI, Query, Response, status
 from sqlalchemy.orm import Session
 
+from .agent_models import Agent, AgentRun
+from .agent_schemas import AgentCreate, AgentRead, AgentRunCreate, AgentRunLogAppend, AgentRunRead, AgentRunUpdate
 from .database import get_db
 from .models import Project, Repository, Ticket, TicketEvent, Workspace
 from .schemas import (
@@ -19,7 +21,7 @@ from .schemas import (
     WorkspaceGitStatus,
     WorkspaceRead,
 )
-from .services import project_service, repository_service, search_service, ticket_service, workspace_service
+from .services import agent_service, project_service, repository_service, search_service, ticket_service, workspace_service
 
 app = FastAPI(title="AgentDesk API", version="0.1.0")
 
@@ -30,11 +32,7 @@ def health() -> dict[str, str]:
 
 
 @app.get("/search", response_model=list[SearchResult])
-def global_search(
-    q: str = Query(min_length=1, max_length=200),
-    limit: int = Query(default=20, ge=1, le=50),
-    db: Session = Depends(get_db),
-) -> list[SearchResult]:
+def global_search(q: str = Query(min_length=1, max_length=200), limit: int = Query(default=20, ge=1, le=50), db: Session = Depends(get_db)) -> list[SearchResult]:
     return search_service.search(db, q, limit)
 
 
@@ -56,6 +54,16 @@ def get_project(project_id: str, db: Session = Depends(get_db)) -> Project:
 @app.patch("/projects/{project_id}", response_model=ProjectRead)
 def update_project(project_id: str, payload: ProjectUpdate, db: Session = Depends(get_db)) -> Project:
     return project_service.update_project(db, project_id, payload)
+
+
+@app.post("/projects/{project_id}/agents", response_model=AgentRead, status_code=status.HTTP_201_CREATED)
+def create_agent(project_id: str, payload: AgentCreate, db: Session = Depends(get_db)) -> Agent:
+    return agent_service.create_agent(db, project_id, payload)
+
+
+@app.get("/projects/{project_id}/agents", response_model=list[AgentRead])
+def list_agents(project_id: str, db: Session = Depends(get_db)) -> list[Agent]:
+    return agent_service.list_agents(db, project_id)
 
 
 @app.post("/projects/{project_id}/repositories", response_model=RepositoryRead, status_code=status.HTTP_201_CREATED)
@@ -137,6 +145,26 @@ def get_ticket(ticket_id: str, db: Session = Depends(get_db)) -> Ticket:
 @app.get("/tickets/{ticket_id}/events", response_model=list[TicketEventRead])
 def list_ticket_events(ticket_id: str, db: Session = Depends(get_db)) -> list[TicketEvent]:
     return ticket_service.list_events(db, ticket_id)
+
+
+@app.post("/tickets/{ticket_id}/runs", response_model=AgentRunRead, status_code=status.HTTP_201_CREATED)
+def create_agent_run(ticket_id: str, payload: AgentRunCreate, db: Session = Depends(get_db)) -> AgentRun:
+    return agent_service.create_run(db, ticket_id, payload)
+
+
+@app.get("/tickets/{ticket_id}/runs", response_model=list[AgentRunRead])
+def list_agent_runs(ticket_id: str, db: Session = Depends(get_db)) -> list[AgentRun]:
+    return agent_service.list_runs(db, ticket_id)
+
+
+@app.patch("/runs/{run_id}", response_model=AgentRunRead)
+def update_agent_run(run_id: str, payload: AgentRunUpdate, db: Session = Depends(get_db)) -> AgentRun:
+    return agent_service.update_run(db, run_id, payload)
+
+
+@app.post("/runs/{run_id}/logs", response_model=AgentRunRead)
+def append_agent_run_log(run_id: str, payload: AgentRunLogAppend, db: Session = Depends(get_db)) -> AgentRun:
+    return agent_service.append_log(db, run_id, payload)
 
 
 @app.patch("/tickets/{ticket_id}", response_model=TicketRead)
