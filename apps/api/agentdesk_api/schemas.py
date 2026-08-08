@@ -121,6 +121,7 @@ class TicketUpdate(BaseModel):
     context: list[str] = Field(default_factory=list)
     estimated_complexity: str | None = Field(default=None, max_length=50)
     requires_human: bool = False
+    archived: bool | None = None
     order: float | None = None
 
 
@@ -144,6 +145,7 @@ class TicketRead(BaseModel):
     context: list[str]
     estimated_complexity: str | None
     requires_human: bool
+    archived: bool
     dependency_ids: list[str]
     blocked_by_ids: list[str]
     is_blocked: bool
