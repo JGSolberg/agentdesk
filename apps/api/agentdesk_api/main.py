@@ -19,9 +19,11 @@ from .schemas import (
     TicketUpdate,
     WorkspaceCreate,
     WorkspaceGitStatus,
+    WorkspacePublishResult,
     WorkspaceRead,
+    WorkspaceReview,
 )
-from .services import agent_service, executor_service, project_service, repository_service, search_service, ticket_service, workspace_service
+from .services import agent_service, executor_service, project_service, repository_service, review_service, search_service, ticket_service, workspace_service
 
 app = FastAPI(title="AgentDesk API", version="0.1.0")
 
@@ -64,6 +66,12 @@ def list_workspaces(repository_id: str, db: Session = Depends(get_db)) -> list[W
 def create_workspace(repository_id: str, payload: WorkspaceCreate, db: Session = Depends(get_db)) -> Workspace: return workspace_service.create_workspace(db, repository_id, payload)
 @app.get("/workspaces/{workspace_id}/status", response_model=WorkspaceGitStatus)
 def get_workspace_status(workspace_id: str, db: Session = Depends(get_db)) -> WorkspaceGitStatus: return workspace_service.workspace_status(db, workspace_id)
+@app.get("/workspaces/{workspace_id}/review", response_model=WorkspaceReview)
+def get_workspace_review(workspace_id: str, db: Session = Depends(get_db)) -> WorkspaceReview: return review_service.workspace_review(db, workspace_id)
+@app.post("/workspaces/{workspace_id}/publish", response_model=WorkspacePublishResult)
+def publish_workspace(workspace_id: str, db: Session = Depends(get_db)) -> WorkspacePublishResult: return review_service.publish_workspace(db, workspace_id)
+@app.post("/workspaces/{workspace_id}/sync-pr")
+def sync_workspace_pr(workspace_id: str, db: Session = Depends(get_db)) -> dict[str, object]: return review_service.sync_pull_request(db, workspace_id)
 @app.delete("/workspaces/{workspace_id}", response_model=WorkspaceRead)
 def remove_workspace(workspace_id: str, db: Session = Depends(get_db)) -> Workspace: return workspace_service.remove_workspace(db, workspace_id)
 @app.delete("/repositories/{repository_id}", status_code=status.HTTP_204_NO_CONTENT)

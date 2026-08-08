@@ -18,6 +18,9 @@
 .ticket-run-card summary strong { color:#e5eaf1; font-size:12px; }
 .ticket-run-card summary span { color:#657186; font-size:10px; }
 .ticket-run-card summary b { color:#8f9aac; font-size:10px; text-transform:uppercase; letter-spacing:.04em; }
+.ticket-run-summary-actions { display:flex !important; grid-auto-flow:column; align-items:center; gap:9px !important; }
+.ticket-run-summary-actions button { border:1px solid #303947; border-radius:6px; background:#171d26; color:#aeb8c6; padding:5px 8px; font:inherit; font-size:9px; font-weight:700; cursor:pointer; }
+.ticket-run-summary-actions button:hover { border-color:#4a5667; color:#e0e6ee; }
 .ticket-run-card.run-succeeded { border-left:3px solid #6fa47d; }
 .ticket-run-card.run-failed { border-left:3px solid #d46f79; }
 .ticket-run-card.run-running { border-left:3px solid #7585ff; }

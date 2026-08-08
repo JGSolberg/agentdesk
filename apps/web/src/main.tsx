@@ -12,6 +12,7 @@ import "./ticket-actions.css";
 import "./repositories.css";
 import "./command-palette.css";
 import "./agent-runs.css";
+import "./review-changes.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

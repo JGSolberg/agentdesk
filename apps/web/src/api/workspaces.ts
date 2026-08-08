@@ -25,6 +25,40 @@ export type WorkspaceGitStatus = {
   head_message: string;
 };
 
+export type WorkspaceReviewFile = {
+  path: string;
+  status: string;
+};
+
+export type WorkspaceReview = {
+  workspace_id: string;
+  branch: string;
+  clean: boolean;
+  files: WorkspaceReviewFile[];
+  additions: number;
+  deletions: number;
+  diff: string;
+  pull_request_url: string | null;
+  pull_request_number: number | null;
+};
+
+export type WorkspacePublishResult = {
+  branch: string;
+  commit_sha: string | null;
+  pull_request_url: string;
+  pull_request_number: number | null;
+  created: boolean;
+};
+
+export type WorkspacePrSync = {
+  found: boolean;
+  merged: boolean;
+  cleaned_up: boolean;
+  url?: string;
+  number?: number | null;
+  state?: string;
+};
+
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -61,6 +95,18 @@ export function createWorkspace(
 
 export function getWorkspaceStatus(workspaceId: string): Promise<WorkspaceGitStatus> {
   return request<WorkspaceGitStatus>(`/workspaces/${workspaceId}/status`);
+}
+
+export function getWorkspaceReview(workspaceId: string): Promise<WorkspaceReview> {
+  return request<WorkspaceReview>(`/workspaces/${workspaceId}/review`);
+}
+
+export function publishWorkspace(workspaceId: string): Promise<WorkspacePublishResult> {
+  return request<WorkspacePublishResult>(`/workspaces/${workspaceId}/publish`, { method: "POST" });
+}
+
+export function syncWorkspacePr(workspaceId: string): Promise<WorkspacePrSync> {
+  return request<WorkspacePrSync>(`/workspaces/${workspaceId}/sync-pr`, { method: "POST" });
 }
 
 export function removeWorkspace(workspaceId: string): Promise<Workspace> {
