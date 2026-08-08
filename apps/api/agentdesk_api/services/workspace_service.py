@@ -242,13 +242,19 @@ def adopt_existing_work(db: Session, repository_id: str, payload: WorkspaceAdopt
             return existing
         raise HTTPException(status_code=409, detail=f"Branch {branch} already belongs to another active workspace")
 
-    _git(["fetch", "--prune", "origin", branch], cwd=managed_clone)
-    remote_branch = _git_output(["show-ref", "--verify", f"refs/remotes/origin/{branch}"], cwd=managed_clone, allow_failure=True)
-    if not remote_branch:
+    remote_ref = f"refs/remotes/origin/{branch}"
+    _git(["fetch", "--prune", "origin", f"refs/heads/{branch}:{remote_ref}"], cwd=managed_clone)
+    remote_sha = _git_output(["rev-parse", "--verify", remote_ref], cwd=managed_clone, allow_failure=True)
+    if not remote_sha:
         raise HTTPException(status_code=404, detail=f"Remote branch origin/{branch} was not found")
+
     local_branch = _git_output(["show-ref", "--verify", f"refs/heads/{branch}"], cwd=managed_clone, allow_failure=True)
     if not local_branch:
-        _git(["branch", "--track", branch, f"origin/{branch}"], cwd=managed_clone)
+        _git(["branch", branch, remote_sha], cwd=managed_clone)
+        # Upstream metadata is helpful but not required for adoption. Some Git
+        # configurations reject --track for explicitly populated remote refs,
+        # so configure it best-effort after the local branch exists.
+        _git_output(["branch", "--set-upstream-to", f"origin/{branch}", branch], cwd=managed_clone, allow_failure=True)
 
     if existing:
         path = _prepare_reactivation_path(repository.id, managed_clone, existing)
