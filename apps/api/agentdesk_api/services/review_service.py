@@ -13,7 +13,7 @@ from ..repositories import event_repository
 from ..schemas import TicketUpdate, WorkspacePublishResult, WorkspaceReview, WorkspaceReviewFile
 from .repository_service import require_repository
 from .ticket_service import require_ticket, update_ticket
-from .workspace_service import require_workspace
+from .workspace_service import remove_workspace, require_workspace
 
 
 _EXCLUDE_PATHSPEC = ":(exclude).agentdesk/**"
@@ -38,9 +38,9 @@ def _workspace_path(workspace: Workspace) -> Path:
     return path
 
 
-def _existing_pr(path: Path, branch: str) -> tuple[str, int | None] | None:
+def _existing_pr(path: Path, branch: str) -> dict[str, object] | None:
     try:
-        result = _run(["gh", "pr", "view", branch, "--json", "url,number"], cwd=path, allow_failure=True)
+        result = _run(["gh", "pr", "view", branch, "--json", "url,number,state,mergedAt"], cwd=path, allow_failure=True)
     except HTTPException as exc:
         if exc.status_code == 503:
             return None
@@ -54,8 +54,12 @@ def _existing_pr(path: Path, branch: str) -> tuple[str, int | None] | None:
     url = str(payload.get("url") or "").strip()
     if not url:
         return None
-    number = payload.get("number")
-    return url, int(number) if isinstance(number, int) else None
+    return {
+        "url": url,
+        "number": payload.get("number") if isinstance(payload.get("number"), int) else None,
+        "state": str(payload.get("state") or "").lower(),
+        "merged": bool(payload.get("mergedAt")),
+    }
 
 
 def _status_lines(path: Path) -> list[str]:
@@ -128,8 +132,8 @@ def workspace_review(db: Session, workspace_id: str) -> WorkspaceReview:
         additions=additions,
         deletions=deletions,
         diff=diff,
-        pull_request_url=existing[0] if existing else None,
-        pull_request_number=existing[1] if existing else None,
+        pull_request_url=str(existing["url"]) if existing else None,
+        pull_request_number=existing["number"] if existing and isinstance(existing["number"], int) else None,
     )
 
 
@@ -148,8 +152,13 @@ def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
 
     existing = _existing_pr(path, workspace.branch)
     if existing is not None:
-        url, number = existing
-        return WorkspacePublishResult(branch=workspace.branch, commit_sha=None, pull_request_url=url, pull_request_number=number, created=False)
+        return WorkspacePublishResult(
+            branch=workspace.branch,
+            commit_sha=None,
+            pull_request_url=str(existing["url"]),
+            pull_request_number=existing["number"] if isinstance(existing["number"], int) else None,
+            created=False,
+        )
 
     if review.clean:
         raise HTTPException(status_code=409, detail="Workspace has no reviewable changes to publish")
@@ -177,7 +186,8 @@ def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
     number: int | None = None
     existing = _existing_pr(path, workspace.branch)
     if existing is not None:
-        url, number = existing
+        url = str(existing["url"])
+        number = existing["number"] if isinstance(existing["number"], int) else None
 
     event_repository.add(
         db,
@@ -198,3 +208,40 @@ def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
         pull_request_number=number,
         created=True,
     )
+
+
+def sync_pull_request(db: Session, workspace_id: str) -> dict[str, object]:
+    workspace = require_workspace(db, workspace_id)
+    if not workspace.ticket_id:
+        raise HTTPException(status_code=409, detail="Workspace is not associated with a ticket")
+    path = _workspace_path(workspace)
+    pr = _existing_pr(path, workspace.branch)
+    if pr is None:
+        return {"found": False, "merged": False, "cleaned_up": False}
+    if not pr["merged"]:
+        return {"found": True, "merged": False, "cleaned_up": False, "url": pr["url"], "number": pr["number"], "state": pr["state"]}
+
+    ticket = require_ticket(db, workspace.ticket_id)
+    repository = require_repository(db, workspace.repository_id)
+    branch = workspace.branch
+    url = str(pr["url"])
+    number = pr["number"] if isinstance(pr["number"], int) else None
+
+    remove_workspace(db, workspace.id)
+    managed_clone = Path(repository.managed_path).resolve() if repository.managed_path else None
+    if managed_clone and managed_clone.exists():
+        _run(["git", "push", "origin", "--delete", branch], cwd=managed_clone, allow_failure=True)
+        _run(["git", "branch", "-D", branch], cwd=managed_clone, allow_failure=True)
+        _run(["git", "fetch", "--prune", "origin"], cwd=managed_clone, allow_failure=True)
+
+    update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.DONE))
+    event_repository.add(
+        db,
+        TicketEvent(
+            ticket_id=ticket.id,
+            event_type="pull_request_merged",
+            actor="system",
+            payload={"workspace_id": workspace.id, "branch": branch, "url": url, "number": number, "branch_cleaned_up": True},
+        ),
+    )
+    return {"found": True, "merged": True, "cleaned_up": True, "url": url, "number": number, "state": "merged"}
