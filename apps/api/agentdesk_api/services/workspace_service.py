@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..models import TicketEvent, Workspace, WorkspaceStatus
 from ..repositories import event_repository, workspace_repository
-from ..schemas import WorkspaceCreate
+from ..schemas import WorkspaceCreate, WorkspaceGitStatus
 from .repository_service import require_repository
 from .ticket_service import require_ticket
 
@@ -37,14 +37,21 @@ def list_workspaces(db: Session, repository_id: str) -> list[Workspace]:
     return workspace_repository.list_for_repository(db, repository_id)
 
 
-def _git(args: list[str], *, cwd: Path) -> None:
+def _git_output(args: list[str], *, cwd: Path, allow_failure: bool = False) -> str:
     try:
-        subprocess.run(["git", *args], cwd=str(cwd), check=True, capture_output=True, text=True)
+        result = subprocess.run(["git", *args], cwd=str(cwd), check=not allow_failure, capture_output=True, text=True)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail="Git executable was not found") from exc
     except subprocess.CalledProcessError as exc:
         detail = exc.stderr.strip() or exc.stdout.strip() or "Git operation failed"
         raise HTTPException(status_code=502, detail=detail) from exc
+    if result.returncode != 0 and not allow_failure:
+        raise HTTPException(status_code=502, detail=result.stderr.strip() or "Git operation failed")
+    return result.stdout.strip()
+
+
+def _git(args: list[str], *, cwd: Path) -> None:
+    _git_output(args, cwd=cwd)
 
 
 def _record_workspace_event(db: Session, workspace: Workspace, event_type: str) -> None:
@@ -64,6 +71,51 @@ def _record_workspace_event(db: Session, workspace: Workspace, event_type: str) 
                 "path": workspace.path,
             },
         ),
+    )
+
+
+def workspace_status(db: Session, workspace_id: str) -> WorkspaceGitStatus:
+    workspace = require_workspace(db, workspace_id)
+    if workspace.status != WorkspaceStatus.ACTIVE:
+        raise HTTPException(status_code=409, detail="Workspace is not active")
+    path = Path(workspace.path).resolve()
+    if not path.exists():
+        raise HTTPException(status_code=409, detail="Workspace path is missing")
+
+    porcelain = _git_output(["status", "--porcelain=v1"], cwd=path)
+    staged = modified = untracked = 0
+    for line in porcelain.splitlines():
+        if line.startswith("??"):
+            untracked += 1
+            continue
+        if len(line) >= 2:
+            if line[0] != " ":
+                staged += 1
+            if line[1] != " ":
+                modified += 1
+
+    branch = _git_output(["branch", "--show-current"], cwd=path) or workspace.branch
+    head_sha = _git_output(["rev-parse", "--short", "HEAD"], cwd=path)
+    head_message = _git_output(["log", "-1", "--pretty=%s"], cwd=path)
+
+    ahead: int | None = None
+    behind: int | None = None
+    tracking = _git_output(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"], cwd=path, allow_failure=True)
+    if tracking:
+        parts = tracking.split()
+        if len(parts) == 2:
+            behind, ahead = int(parts[0]), int(parts[1])
+
+    return WorkspaceGitStatus(
+        branch=branch,
+        clean=(staged + modified + untracked) == 0,
+        staged=staged,
+        modified=modified,
+        untracked=untracked,
+        ahead=ahead,
+        behind=behind,
+        head_sha=head_sha,
+        head_message=head_message,
     )
 
 
