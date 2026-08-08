@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import shutil
 import subprocess
 
 from fastapi import HTTPException
@@ -99,10 +100,27 @@ def _prepare_reactivation_path(repository_id: str, managed_clone: Path, workspac
     if existing_branch_path is not None and existing_branch_path != path:
         if root not in existing_branch_path.parents:
             raise HTTPException(status_code=409, detail=f"Branch {workspace.branch} is already checked out outside AgentDesk storage")
-        _git(["worktree", "remove", "--force", str(existing_branch_path)], cwd=managed_clone)
+        _git_output(["worktree", "remove", "--force", str(existing_branch_path)], cwd=managed_clone, allow_failure=True)
+        _remove_path_long_safe(existing_branch_path)
+        _git_output(["worktree", "prune"], cwd=managed_clone, allow_failure=True)
 
     _git(["worktree", "prune"], cwd=managed_clone)
     return path
+
+
+def _remove_path_long_safe(path: Path) -> None:
+    """Remove a workspace tree, including Windows paths beyond MAX_PATH."""
+    if not path.exists():
+        return
+    target = str(path)
+    if os.name == "nt" and not target.startswith("\\\\?\\"):
+        target = f"\\\\?\\{target}"
+    try:
+        shutil.rmtree(target)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise HTTPException(status_code=502, detail=f"Unable to remove workspace directory: {exc}") from exc
 
 
 def workspace_status(db: Session, workspace_id: str) -> WorkspaceGitStatus:
@@ -230,8 +248,12 @@ def remove_workspace(db: Session, workspace_id: str) -> Workspace:
 
     managed_clone = Path(repository.managed_path).resolve()
     if path.exists():
-        _git(["worktree", "remove", str(path)], cwd=managed_clone)
-    _git(["worktree", "prune"], cwd=managed_clone)
+        # Git may fail to physically delete deeply nested Windows paths even
+        # after unregistering the worktree. Treat registration and filesystem
+        # cleanup as separate steps so finalization remains reliable.
+        _git_output(["worktree", "remove", "--force", str(path)], cwd=managed_clone, allow_failure=True)
+        _remove_path_long_safe(path)
+    _git_output(["worktree", "prune"], cwd=managed_clone, allow_failure=True)
 
     workspace.status = WorkspaceStatus.REMOVED
     workspace = workspace_repository.save(db, workspace)
