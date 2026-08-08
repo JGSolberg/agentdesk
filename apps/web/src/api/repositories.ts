@@ -13,6 +13,20 @@ export type Repository = {
   updated_at: string;
 };
 
+export type GitRepositoryStatus = {
+  path_exists: boolean;
+  is_git_repository: boolean;
+  branch: string | null;
+  head_sha: string | null;
+  head_message: string | null;
+  remote_url: string | null;
+  is_dirty: boolean;
+  staged_count: number;
+  modified_count: number;
+  untracked_count: number;
+  error: string | null;
+};
+
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -41,6 +55,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export function listRepositories(projectId: string): Promise<Repository[]> {
   return request<Repository[]>(`/projects/${projectId}/repositories`);
+}
+
+export function getRepositoryStatus(repositoryId: string): Promise<GitRepositoryStatus> {
+  return request<GitRepositoryStatus>(`/repositories/${repositoryId}/status`);
 }
 
 export function createRepository(
