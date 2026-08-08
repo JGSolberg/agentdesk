@@ -50,5 +50,5 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export function listAgents(projectId: string): Promise<Agent[]> { return request(`/projects/${projectId}/agents`); }
 export function createAgent(projectId: string, payload: AgentCreate): Promise<Agent> { return request(`/projects/${projectId}/agents`, { method: "POST", body: JSON.stringify(payload) }); }
 export function listRuns(ticketId: string): Promise<AgentRun[]> { return request(`/tickets/${ticketId}/runs`); }
-export function createRun(ticketId: string, payload: { agent_id: string; workspace_id: string }): Promise<AgentRun> { return request(`/tickets/${ticketId}/runs`, { method: "POST", body: JSON.stringify(payload) }); }
+export function createRun(ticketId: string, payload: { agent_id: string; workspace_id: string; allow_non_actionable?: boolean }): Promise<AgentRun> { return request(`/tickets/${ticketId}/runs`, { method: "POST", body: JSON.stringify(payload) }); }
 export function executeRun(runId: string): Promise<AgentRun> { return request(`/runs/${runId}/execute`, { method: "POST" }); }
