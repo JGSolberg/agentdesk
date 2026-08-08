@@ -112,6 +112,8 @@ def _has_unmerged_conflicts(path: Path) -> bool:
 
 
 def _has_unpublished_work(path: Path, existing_pr: dict[str, object] | None) -> bool:
+    if existing_pr and bool(existing_pr.get("merged")):
+        return False
     if _status_lines(path):
         return True
     head = _run(["git", "rev-parse", "HEAD"], cwd=path, allow_failure=True)
@@ -159,6 +161,7 @@ def workspace_review(db: Session, workspace_id: str) -> WorkspaceReview:
         diff=diff,
         pull_request_url=str(existing["url"]) if existing else None,
         pull_request_number=existing["number"] if existing and isinstance(existing["number"], int) else None,
+        pull_request_merged=bool(existing and existing.get("merged")),
     )
 
 
@@ -173,6 +176,9 @@ def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
     path = _workspace_path(workspace)
     ticket = require_ticket(db, workspace.ticket_id)
     repository = require_repository(db, workspace.repository_id)
+    existing = _existing_pr(path, workspace.branch)
+    if existing is not None and bool(existing.get("merged")):
+        raise HTTPException(status_code=409, detail="Pull request is already merged. Sync PR status to finalize the ticket and clean up the workspace.")
 
     origin = _run(["git", "remote", "get-url", "origin"], cwd=path, allow_failure=True)
     if origin.returncode == 0:
