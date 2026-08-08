@@ -6,7 +6,7 @@ import TicketRelationships from "./TicketRelationships";
 
 type Pane = "menu" | "relationships" | "lifecycle";
 
-export default function TicketLifecycleActions({ ticket, onChanged }: { ticket: Ticket; onChanged: () => Promise<void> }) {
+export default function TicketLifecycleActions({ ticket, onChanged, onEdit }: { ticket: Ticket; onChanged: () => Promise<void>; onEdit: () => void }) {
   const navigate = useNavigate();
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -67,6 +67,12 @@ export default function TicketLifecycleActions({ ticket, onChanged }: { ticket: 
     setError(null);
   }
 
+  function edit() {
+    setOpen(false);
+    setPane("menu");
+    onEdit();
+  }
+
   return (
     <div className="ticket-lifecycle-wrap">
       <div className="ticket-actions-menu" ref={menuRef}>
@@ -78,6 +84,9 @@ export default function TicketLifecycleActions({ ticket, onChanged }: { ticket: 
           <div className={`ticket-actions-popover${pane === "menu" ? "" : " expanded"}`}>
             {pane === "menu" ? (
               <>
+                <button type="button" onClick={edit}>
+                  <strong>Edit ticket</strong><span>Title, status, criteria, and details</span>
+                </button>
                 <button type="button" onClick={() => setPane("relationships")}>
                   <strong>Relationships</strong><span>Parent, dependencies, blockers</span><b>›</b>
                 </button>
