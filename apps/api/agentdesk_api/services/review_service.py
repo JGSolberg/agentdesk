@@ -38,6 +38,12 @@ def _workspace_path(workspace: Workspace) -> Path:
     return path
 
 
+def _is_git_worktree(path: Path) -> bool:
+    if not path.exists():
+        return False
+    return _run(["git", "rev-parse", "--is-inside-work-tree"], cwd=path, allow_failure=True).returncode == 0
+
+
 def _existing_pr(path: Path, branch: str) -> dict[str, object] | None:
     try:
         result = _run(["gh", "pr", "view", branch, "--json", "url,number,state,mergedAt,headRefOid"], cwd=path, allow_failure=True)
@@ -61,6 +67,17 @@ def _existing_pr(path: Path, branch: str) -> dict[str, object] | None:
         "merged": bool(payload.get("mergedAt")),
         "head_sha": str(payload.get("headRefOid") or "").strip() or None,
     }
+
+
+def _pr_lookup_path(workspace: Workspace, repository_managed_path: str | None) -> Path:
+    workspace_path = Path(workspace.path).resolve()
+    if _is_git_worktree(workspace_path):
+        return workspace_path
+    if repository_managed_path:
+        managed = Path(repository_managed_path).resolve()
+        if managed.exists():
+            return managed
+    return workspace_path
 
 
 def _status_lines(path: Path) -> list[str]:
@@ -133,8 +150,30 @@ def _has_unpublished_work(path: Path, existing_pr: dict[str, object] | None) -> 
 
 def workspace_review(db: Session, workspace_id: str) -> WorkspaceReview:
     workspace = require_workspace(db, workspace_id)
-    path = _workspace_path(workspace)
     repository = require_repository(db, workspace.repository_id)
+    path = Path(workspace.path).resolve()
+    lookup_path = _pr_lookup_path(workspace, repository.managed_path)
+    existing = _existing_pr(lookup_path, workspace.branch)
+
+    # A previous cleanup attempt may have removed Git's worktree metadata while
+    # leaving the DB workspace active. Keep the ticket recoverable: surface the
+    # PR state and let Sync & finalize finish cleanup instead of running Git in
+    # a directory whose .git pointer is now stale.
+    if not _is_git_worktree(path):
+        return WorkspaceReview(
+            workspace_id=workspace.id,
+            branch=workspace.branch,
+            clean=True,
+            unpublished=False,
+            files=[],
+            additions=0,
+            deletions=0,
+            diff="",
+            pull_request_url=str(existing["url"]) if existing else None,
+            pull_request_number=existing["number"] if existing and isinstance(existing["number"], int) else None,
+            pull_request_merged=bool(existing and existing.get("merged")),
+        )
+
     base_ref = _base_ref(path, repository.default_branch)
     files = _review_files(path, base_ref)
     diff = _run(["git", "diff", base_ref, "--", ".", _EXCLUDE_PATHSPEC], cwd=path).stdout
@@ -149,7 +188,6 @@ def workspace_review(db: Session, workspace_id: str) -> WorkspaceReview:
             additions += 1
         elif line.startswith("-"):
             deletions += 1
-    existing = _existing_pr(path, workspace.branch)
     return WorkspaceReview(
         workspace_id=workspace.id,
         branch=workspace.branch,
@@ -174,6 +212,8 @@ def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
     if not workspace.ticket_id:
         raise HTTPException(status_code=409, detail="Workspace is not associated with a ticket")
     path = _workspace_path(workspace)
+    if not _is_git_worktree(path):
+        raise HTTPException(status_code=409, detail="Workspace Git metadata is unavailable. Sync PR status to finalize or recreate the workspace.")
     ticket = require_ticket(db, workspace.ticket_id)
     repository = require_repository(db, workspace.repository_id)
     existing = _existing_pr(path, workspace.branch)
@@ -231,15 +271,15 @@ def sync_pull_request(db: Session, workspace_id: str) -> dict[str, object]:
     workspace = require_workspace(db, workspace_id)
     if not workspace.ticket_id:
         raise HTTPException(status_code=409, detail="Workspace is not associated with a ticket")
-    path = _workspace_path(workspace)
-    pr = _existing_pr(path, workspace.branch)
+    repository = require_repository(db, workspace.repository_id)
+    lookup_path = _pr_lookup_path(workspace, repository.managed_path)
+    pr = _existing_pr(lookup_path, workspace.branch)
     if pr is None:
         return {"found": False, "merged": False, "cleaned_up": False}
     if not pr["merged"]:
         return {"found": True, "merged": False, "cleaned_up": False, "url": pr["url"], "number": pr["number"], "state": pr["state"]}
 
     ticket = require_ticket(db, workspace.ticket_id)
-    repository = require_repository(db, workspace.repository_id)
     branch = workspace.branch
     url = str(pr["url"])
     number = pr["number"] if isinstance(pr["number"], int) else None
