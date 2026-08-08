@@ -1,21 +1,19 @@
 [project]
 name = "agentdesk-api"
 version = "0.1.0"
-description = "AgentDesk API"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
+
 dependencies = [
-  "fastapi>=0.116,<1",
-  "uvicorn[standard]>=0.35,<1",
-  "sqlalchemy>=2.0,<3",
-  "pydantic>=2.11,<3",
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy",
+    "alembic",
+    "pydantic",
 ]
 
-[project.optional-dependencies]
-dev = [
-  "pytest>=8.4,<10",
-  "httpx>=0.28,<1",
-]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
+[tool.hatch.build.targets.wheel]
+packages = ["agentdesk_api"]

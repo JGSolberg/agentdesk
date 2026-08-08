@@ -1,0 +1,32 @@
+[project]
+name = "agentdesk"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "agentdesk-api",
+]
+
+[tool.uv]
+link-mode = "copy"
+
+[tool.uv.sources]
+agentdesk-api = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "apps/api",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "httpx2>=0.28.1",
+    "ruff",
+    "mypy",
+]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "apps/api/tests",
+    "tests",
+]
