@@ -8,7 +8,7 @@
   "terminal.integrated.profiles.windows": {
     "Activated PowerShell": {
       "source": "PowerShell",
-      "args": ["-NoLogo", "-NoExit", "-Command", "& 'e:\\Coding\\agentdesk\\.venv\\Scripts\\Activate.ps1' 2>$null | Out-Null"]
+      "args": ["-NoLogo", "-NoExit", "-Command", "& '${workspaceFolder}\\.venv\\Scripts\\Activate.ps1' 2>$null | Out-Null"]
     }
   },
   "terminal.integrated.defaultProfile.windows": "Activated PowerShell",

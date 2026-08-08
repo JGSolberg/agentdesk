@@ -18,4 +18,4 @@ format:
     uv run ruff format .
 
 api:
-    uv run uvicorn apps.api.agentdesk_api.main:app --reload
+    uv run uvicorn agentdesk_api.main:app --reload

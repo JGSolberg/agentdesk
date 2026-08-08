@@ -19,10 +19,10 @@ members = [
 
 [dependency-groups]
 dev = [
-    "pytest>=9.1.1",
-    "httpx2>=0.28.1",
-    "ruff",
-    "mypy",
+    "pytest>=9.1,<10",
+    "httpx2>=2.9,<3",
+    "ruff>=0.12,<1",
+    "mypy>=1.17,<2",
 ]
 
 [tool.pytest.ini_options]
