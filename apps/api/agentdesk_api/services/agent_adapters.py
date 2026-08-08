@@ -23,6 +23,7 @@ class ExecutionOutcome:
     logs: list[tuple[str, str]]
     result: str | None
     error: str | None
+    needs_human: bool = False
 
 
 class AgentAdapter(Protocol):
@@ -122,6 +123,23 @@ class CodexCliAdapter:
             elif event_type in {"turn.failed", "error"}: logs.append(("error", json.dumps(event, ensure_ascii=False)))
         if stderr.strip(): logs.append(("stderr", stderr.rstrip()))
         if parse_errors: logs.append(("codex", f"{parse_errors} non-JSON Codex output line(s) captured verbatim"))
+
+        permission_text = f"{final_message or ''}\n{stderr}".lower()
+        permission_markers = (
+            "filesystem is read-only",
+            "writing is blocked by read-only sandbox",
+            "workspace write permissions enabled",
+            "write approval is disabled",
+            "patch rejected: writing is blocked",
+        )
+        if any(marker in permission_text for marker in permission_markers):
+            message = (
+                "Codex could inspect the workspace but could not write to it. On Windows, initialize the Codex agent sandbox "
+                "once from the interactive Codex CLI (choose the default sandbox when prompted), then rerun this ticket."
+            )
+            logs.append(("needs_human", message))
+            return ExecutionOutcome(logs=logs, result=final_message, error=message, needs_human=True)
+
         if returncode == 0:
             return ExecutionOutcome(logs=logs, result=final_message or "Codex completed successfully", error=None)
         return ExecutionOutcome(logs=logs, result=final_message, error=f"Codex exited with code {returncode}")
