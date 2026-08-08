@@ -98,12 +98,21 @@
 .archived-workspaces code { color: #a8b2c1; }
 .archived-workspaces span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .detail-activity { margin-top: 20px; }
+.activity-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:12px; }
+.activity-heading h2 { margin-bottom:3px; }
+.activity-heading p { font-size:10px; }
+.activity-filters { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+.activity-filters button, .activity-pagination button { border:1px solid #303746; border-radius:999px; background:#171c24; color:#8995a7; padding:5px 9px; font:inherit; font-size:9px; font-weight:700; text-transform:capitalize; cursor:pointer; }
+.activity-filters button.active { border-color:#6574ff; background:#20284a; color:#dce2ff; }
+.activity-pagination button:disabled { opacity:.4; cursor:default; }
 .activity-timeline { display: grid; gap: 0; margin-top: 4px; }
 .activity-event { position: relative; display: grid; grid-template-columns: 18px 1fr; gap: 10px; padding: 10px 0; }
 .activity-event:not(:last-child)::before { content: ""; position: absolute; top: 24px; bottom: -10px; left: 5px; width: 1px; background: #2a303c; }
 .activity-dot { width: 11px; height: 11px; margin-top: 4px; border: 2px solid #7585ff; border-radius: 999px; background: #11151c; }
 .activity-event strong { color: #d9e0ea; font-size: 13px; font-weight: 600; text-transform: capitalize; }
 .activity-event p { margin-top: 3px; color: #697487; font-size: 11px; }
+.activity-pagination { display:flex; align-items:center; justify-content:flex-end; gap:10px; padding-top:12px; margin-top:6px; border-top:1px solid #232833; }
+.activity-pagination span { color:#697487; font-size:9px; }
 @media (max-width: 860px) {
   .ticket-detail-header { display: grid; }
   .ticket-detail-grid { grid-template-columns: 1fr; }
@@ -113,4 +122,6 @@
   .epic-child-row { display: grid; }
   .epic-child-meta { flex-wrap: wrap; }
   .archived-workspaces div { grid-template-columns: 1fr; }
+  .activity-heading { align-items:stretch; flex-direction:column; }
+  .activity-filters { justify-content:flex-start; }
 }
