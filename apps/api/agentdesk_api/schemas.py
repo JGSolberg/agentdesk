@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .models import TicketPriority, TicketStatus, TicketType
+from .models import RepositoryProvider, TicketPriority, TicketStatus, TicketType
 
 
 class ProjectCreate(BaseModel):
@@ -23,6 +23,39 @@ class ProjectRead(BaseModel):
     name: str
     description: str | None
     archived: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class RepositoryCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    local_path: str = Field(min_length=1, max_length=1000)
+    provider: RepositoryProvider = RepositoryProvider.LOCAL
+    remote_url: str | None = Field(default=None, max_length=1000)
+    default_branch: str = Field(default="main", min_length=1, max_length=255)
+    is_primary: bool = False
+
+
+class RepositoryUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    local_path: str | None = Field(default=None, min_length=1, max_length=1000)
+    provider: RepositoryProvider | None = None
+    remote_url: str | None = Field(default=None, max_length=1000)
+    default_branch: str | None = Field(default=None, min_length=1, max_length=255)
+    is_primary: bool | None = None
+
+
+class RepositoryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    project_id: str
+    name: str
+    local_path: str
+    provider: RepositoryProvider
+    remote_url: str | None
+    default_branch: str
+    is_primary: bool
     created_at: datetime
     updated_at: datetime
 
