@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { updateTicket, type Ticket } from "./api/tickets";
-import { getWorkspaceReview, publishWorkspace, type Workspace, type WorkspacePublishResult, type WorkspaceReview } from "./api/workspaces";
+import { getWorkspaceReview, publishWorkspace, syncWorkspacePr, type Workspace, type WorkspacePublishResult, type WorkspaceReview } from "./api/workspaces";
 
 export default function ReviewChanges({ ticket, workspace, onChanged }: { ticket: Ticket; workspace: Workspace; onChanged: () => Promise<void> | void }) {
   const [review, setReview] = useState<WorkspaceReview | null>(null);
@@ -31,6 +31,24 @@ export default function ReviewChanges({ ticket, workspace, onChanged }: { ticket
       await onChanged();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to create pull request");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function syncPullRequest() {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await syncWorkspacePr(workspace.id);
+      if (result.merged && result.cleaned_up) {
+        await onChanged();
+        return;
+      }
+      if (!result.found) setError("No pull request found for this branch yet.");
+      else setError(`Pull request is still ${result.state ?? "open"}. Merge it in GitHub, then sync again.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to sync pull request status");
     } finally {
       setBusy(false);
     }
@@ -74,10 +92,12 @@ export default function ReviewChanges({ ticket, workspace, onChanged }: { ticket
         <summary>View diff</summary>
         <pre>{review.diff || "No textual diff available."}</pre>
       </details>
-      <div className="review-actions">
-        <button type="button" disabled={busy} onClick={() => void requestChanges()}>Request changes</button>
-        {!prUrl && <button className="primary" type="button" disabled={busy} onClick={() => void createPullRequest()}>{busy ? "Working…" : "Create PR"}</button>}
-      </div>
     </>}
+
+    <div className="review-actions">
+      {review && !review.clean && <button type="button" disabled={busy} onClick={() => void requestChanges()}>Request changes</button>}
+      {!prUrl && review && !review.clean && <button className="primary" type="button" disabled={busy} onClick={() => void createPullRequest()}>{busy ? "Working…" : "Create PR"}</button>}
+      {prUrl && <button className="primary" type="button" disabled={busy} onClick={() => void syncPullRequest()}>{busy ? "Checking…" : "Sync PR status"}</button>}
+    </div>
   </section>;
 }
