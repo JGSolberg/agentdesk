@@ -42,6 +42,9 @@ export type Ticket = {
   assignee?: string | null;
 };
 
+export type TicketCreate = Pick<Ticket, "title" | "type" | "status" | "priority"> &
+  Partial<Pick<Ticket, "description" | "goal" | "parent_id" | "acceptance_criteria" | "constraints" | "definition_of_done" | "relevant_files" | "context" | "estimated_complexity" | "requires_human" | "order">>;
+
 export type TicketUpdate = Partial<
   Pick<
     Ticket,
@@ -107,10 +110,7 @@ export function listTicketEvents(ticketId: string): Promise<TicketEvent[]> {
   return request<TicketEvent[]>(`/tickets/${ticketId}/events`);
 }
 
-export function createTicket(
-  projectId: string,
-  payload: { title: string; type: TicketType; priority: TicketPriority; status?: TicketStatus },
-): Promise<Ticket> {
+export function createTicket(projectId: string, payload: TicketCreate): Promise<Ticket> {
   return request<Ticket>(`/projects/${projectId}/tickets`, { method: "POST", body: JSON.stringify(payload) });
 }
 
