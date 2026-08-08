@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 
 from fastapi import HTTPException
@@ -90,19 +91,52 @@ def _branch_worktree_path(managed_clone: Path, branch: str) -> Path | None:
     return None
 
 
-def _remove_path_long_safe(path: Path) -> None:
-    """Remove a workspace tree, including Windows paths beyond MAX_PATH."""
-    if not path.exists():
+def _clear_readonly_and_retry(function, path: str, _excinfo) -> None:
+    """shutil callback for Windows read-only Git object files."""
+    try:
+        os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+        function(path)
+    except OSError:
+        # The caller performs a final best-effort Windows fallback. Cleanup
+        # residue must not prevent a merged ticket from being finalized.
         return
+
+
+def _remove_path_long_safe(path: Path) -> bool:
+    """Best-effort removal for long/read-only Windows workspace trees."""
+    if not path.exists():
+        return True
     target = str(path)
     if os.name == "nt" and not target.startswith("\\\\?\\"):
         target = f"\\\\?\\{target}"
     try:
-        shutil.rmtree(target)
+        shutil.rmtree(target, onexc=_clear_readonly_and_retry)
     except FileNotFoundError:
-        return
-    except OSError as exc:
-        raise HTTPException(status_code=502, detail=f"Unable to remove workspace directory: {exc}") from exc
+        return True
+    except OSError:
+        pass
+
+    if not path.exists():
+        return True
+
+    if os.name == "nt":
+        # Git object files and nested test repositories can retain the
+        # read-only attribute. Clear it recursively, then let cmd remove the
+        # remaining long-path tree. Both steps are intentionally best-effort.
+        subprocess.run(
+            ["cmd.exe", "/d", "/c", "attrib", "-R", f"{target}\\*", "/S", "/D"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        subprocess.run(
+            ["cmd.exe", "/d", "/c", "rmdir", "/S", "/Q", target],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    return not path.exists()
 
 
 def _prepare_reactivation_path(repository_id: str, managed_clone: Path, workspace: Workspace) -> Path:
@@ -252,9 +286,8 @@ def remove_workspace(db: Session, workspace_id: str) -> Workspace:
 
     managed_clone = Path(repository.managed_path).resolve()
     if path.exists():
-        # Git may fail to physically delete deeply nested Windows paths even
-        # after unregistering the worktree. Treat registration and filesystem
-        # cleanup as separate steps so finalization remains reliable.
+        # Git registration is authoritative. Filesystem residue (for example
+        # read-only pytest Git objects on Windows) must not block finalization.
         _git_output(["worktree", "remove", "--force", str(path)], cwd=managed_clone, allow_failure=True)
         _remove_path_long_safe(path)
     _git_output(["worktree", "prune"], cwd=managed_clone, allow_failure=True)
