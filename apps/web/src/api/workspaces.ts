@@ -34,6 +34,7 @@ export type WorkspaceReview = {
   workspace_id: string;
   branch: string;
   clean: boolean;
+  unpublished: boolean;
   files: WorkspaceReviewFile[];
   additions: number;
   deletions: number;
