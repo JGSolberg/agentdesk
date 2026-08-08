@@ -44,6 +44,25 @@
 .ticket-edit-checkbox { display: flex !important; grid-template-columns: auto 1fr; align-items: center; justify-content: flex-start; gap: 9px !important; }
 .ticket-edit-checkbox input { width: auto; }
 .ticket-edit-actions { display: flex; justify-content: flex-end; gap: 9px; }
+.ticket-workspaces { display: grid; gap: 14px; }
+.workspace-heading h2 { margin-bottom: 4px; }
+.workspace-heading p { font-size: 12px; }
+.ticket-workspace-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px; border: 1px solid #2a303c; border-radius: 8px; background: #0d1117; }
+.ticket-workspace-card > div { display: grid; min-width: 0; gap: 4px; }
+.ticket-workspace-card strong { color: #e0e6ef; font-size: 13px; }
+.ticket-workspace-card span { color: #788497; font-size: 11px; }
+.ticket-workspace-card code { overflow: hidden; color: #9ba7b8; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.ticket-workspace-card button,
+.ticket-workspace-create button { border: 1px solid #303746; border-radius: 7px; background: #171c24; color: #cdd5e1; padding: 7px 10px; cursor: pointer; white-space: nowrap; }
+.ticket-workspace-card button:disabled,
+.ticket-workspace-create button:disabled { opacity: 0.5; cursor: default; }
+.ticket-workspace-create { display: flex; gap: 8px; }
+.ticket-workspace-create select { flex: 1; border: 1px solid #303746; border-radius: 7px; background: #0d1117; color: #d9e0ea; padding: 8px 10px; }
+.archived-workspaces { border-top: 1px solid #252b36; padding-top: 10px; color: #7c8798; font-size: 11px; }
+.archived-workspaces summary { cursor: pointer; }
+.archived-workspaces div { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 10px; padding: 8px 0 0; }
+.archived-workspaces code { color: #a8b2c1; }
+.archived-workspaces span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .detail-activity { margin-top: 20px; }
 .activity-timeline { display: grid; gap: 0; margin-top: 4px; }
 .activity-event { position: relative; display: grid; grid-template-columns: 18px 1fr; gap: 10px; padding: 10px 0; }
@@ -55,4 +74,6 @@
   .ticket-detail-header { display: grid; }
   .ticket-detail-grid { grid-template-columns: 1fr; }
   .ticket-edit-row.two-up, .ticket-edit-row.four-up { grid-template-columns: 1fr; }
+  .ticket-workspace-card, .ticket-workspace-create { display: grid; }
+  .archived-workspaces div { grid-template-columns: 1fr; }
 }

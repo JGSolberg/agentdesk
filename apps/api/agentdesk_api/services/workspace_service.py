@@ -7,8 +7,8 @@ import subprocess
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from ..models import Workspace, WorkspaceStatus
-from ..repositories import workspace_repository
+from ..models import TicketEvent, Workspace, WorkspaceStatus
+from ..repositories import event_repository, workspace_repository
 from ..schemas import WorkspaceCreate
 from .repository_service import require_repository
 from .ticket_service import require_ticket
@@ -45,6 +45,26 @@ def _git(args: list[str], *, cwd: Path) -> None:
     except subprocess.CalledProcessError as exc:
         detail = exc.stderr.strip() or exc.stdout.strip() or "Git operation failed"
         raise HTTPException(status_code=502, detail=detail) from exc
+
+
+def _record_workspace_event(db: Session, workspace: Workspace, event_type: str) -> None:
+    if not workspace.ticket_id:
+        return
+    event_repository.add(
+        db,
+        TicketEvent(
+            ticket_id=workspace.ticket_id,
+            event_type=event_type,
+            actor="user",
+            payload={
+                "workspace_id": workspace.id,
+                "repository_id": workspace.repository_id,
+                "name": workspace.name,
+                "branch": workspace.branch,
+                "path": workspace.path,
+            },
+        ),
+    )
 
 
 def create_workspace(db: Session, repository_id: str, payload: WorkspaceCreate) -> Workspace:
@@ -89,7 +109,9 @@ def create_workspace(db: Session, repository_id: str, payload: WorkspaceCreate) 
         path=str(path),
         status=WorkspaceStatus.ACTIVE,
     )
-    return workspace_repository.save(db, workspace)
+    workspace = workspace_repository.save(db, workspace)
+    _record_workspace_event(db, workspace, "workspace_created")
+    return workspace
 
 
 def remove_workspace(db: Session, workspace_id: str) -> Workspace:
@@ -112,4 +134,6 @@ def remove_workspace(db: Session, workspace_id: str) -> Workspace:
     _git(["worktree", "prune"], cwd=managed_clone)
 
     workspace.status = WorkspaceStatus.REMOVED
-    return workspace_repository.save(db, workspace)
+    workspace = workspace_repository.save(db, workspace)
+    _record_workspace_event(db, workspace, "workspace_removed")
+    return workspace
