@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { deleteTicket, updateTicket, type Ticket } from "./api/tickets";
 import type { Repository } from "./api/repositories";
-import { adoptPullRequest, type Workspace } from "./api/workspaces";
+import { adoptExistingWork, type Workspace } from "./api/workspaces";
 import TicketRelationships from "./TicketRelationships";
 
 type Pane = "menu" | "relationships" | "workspace" | "adopt" | "lifecycle";
@@ -63,11 +63,12 @@ export default function TicketLifecycleActions({ ticket, onChanged, onEdit, repo
     event.preventDefault();
     if (!adoptRepositoryId) return;
     const data = new FormData(event.currentTarget);
+    const branch = String(data.get("branch") ?? "").trim();
     const pullRequest = String(data.get("pull_request") ?? "").trim();
-    if (!pullRequest) return;
+    if (!branch && !pullRequest) return;
     setBusy(true); setError(null);
     try {
-      await adoptPullRequest(adoptRepositoryId, { ticket_id: ticket.id, pull_request: pullRequest });
+      await adoptExistingWork(adoptRepositoryId, { ticket_id: ticket.id, branch: branch || null, pull_request: pullRequest || null });
       await onChanged();
       setPane("workspace");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to adopt existing work"); }
@@ -89,7 +90,7 @@ export default function TicketLifecycleActions({ ticket, onChanged, onEdit, repo
                 <button type="button" onClick={edit}><strong>Edit ticket</strong><span>Title, status, criteria, and details</span></button>
                 <button type="button" onClick={() => setPane("relationships")}><strong>Relationships</strong><span>Parent, dependencies, blockers</span><b>›</b></button>
                 <button type="button" onClick={() => setPane("workspace")}><strong>Workspace</strong><span>{activeWorkspaces.length ? `${activeWorkspaces.length} active worktree${activeWorkspaces.length === 1 ? "" : "s"}` : "Create or reactivate a worktree"}</span><b>›</b></button>
-                <button type="button" onClick={() => setPane("adopt")} disabled={activeWorkspaces.length > 0}><strong>Adopt existing work</strong><span>{activeWorkspaces.length ? "Remove the current workspace first" : "Attach an existing GitHub pull request"}</span><b>›</b></button>
+                <button type="button" onClick={() => setPane("adopt")} disabled={activeWorkspaces.length > 0}><strong>Adopt existing work</strong><span>{activeWorkspaces.length ? "Remove the current workspace first" : "Attach an existing branch or pull request"}</span><b>›</b></button>
                 <button type="button" onClick={() => setPane("lifecycle")}><strong>Lifecycle</strong><span>Cancel, archive, or delete</span><b>›</b></button>
               </>
             ) : (
@@ -100,7 +101,7 @@ export default function TicketLifecycleActions({ ticket, onChanged, onEdit, repo
                   {pane === "workspace" && (
                     <div className="lifecycle-menu-content">
                       {activeWorkspaces.map((workspace) => { const repository = repositories.find((item) => item.id === workspace.repository_id); return <div className="workspace-action-item" key={workspace.id}><div><strong>{workspace.branch}</strong><span>{repository?.name ?? "Repository"}</span><code>{workspace.path}</code></div><button type="button" disabled={workspaceBusy} onClick={() => void onRemoveWorkspace(workspace)}>Remove worktree</button></div>; })}
-                      {activeWorkspaces.length === 0 && cloneReadyRepositories.length > 0 && <><p>{archivedWorkspaces.length ? "Recreate the ticket workspace on its existing branch, create a new one, or adopt an existing PR from the Actions menu." : "Create an AgentDesk-owned worktree for this ticket, or adopt an existing PR from the Actions menu."}</p><div className="ticket-workspace-create"><select value={workspaceRepositoryId} onChange={(event) => onWorkspaceRepositoryChange(event.target.value)}>{cloneReadyRepositories.map((repository) => <option key={repository.id} value={repository.id}>{repository.name}</option>)}</select><button type="button" disabled={workspaceBusy || !workspaceRepositoryId} onClick={() => void onCreateWorkspace()}>{workspaceBusy ? "Creating…" : archivedWorkspaces.length ? "Reactivate workspace" : "Create workspace"}</button></div></>}
+                      {activeWorkspaces.length === 0 && cloneReadyRepositories.length > 0 && <><p>{archivedWorkspaces.length ? "Recreate the ticket workspace on its existing branch, create a new one, or adopt existing work from the Actions menu." : "Create an AgentDesk-owned worktree for this ticket, or adopt existing work from the Actions menu."}</p><div className="ticket-workspace-create"><select value={workspaceRepositoryId} onChange={(event) => onWorkspaceRepositoryChange(event.target.value)}>{cloneReadyRepositories.map((repository) => <option key={repository.id} value={repository.id}>{repository.name}</option>)}</select><button type="button" disabled={workspaceBusy || !workspaceRepositoryId} onClick={() => void onCreateWorkspace()}>{workspaceBusy ? "Creating…" : archivedWorkspaces.length ? "Reactivate workspace" : "Create workspace"}</button></div></>}
                       {activeWorkspaces.length === 0 && cloneReadyRepositories.length === 0 && repositories.length > 0 && <p>Clone a project repository before creating or adopting a workspace.</p>}
                       {repositories.length === 0 && <p>Register a repository for this project before creating a workspace.</p>}
                       {archivedWorkspaces.length > 0 && <div className="workspace-action-archive"><strong>Archived</strong>{archivedWorkspaces.map((workspace) => <span key={workspace.id}>{workspace.branch}</span>)}</div>}
@@ -108,8 +109,8 @@ export default function TicketLifecycleActions({ ticket, onChanged, onEdit, repo
                   )}
                   {pane === "adopt" && (
                     <form className="adopt-work-form" onSubmit={adopt}>
-                      <p>Attach this ticket to work that already exists in GitHub. AgentDesk will fetch the PR head branch and create its managed worktree from that branch.</p>
-                      {cloneReadyRepositories.length > 0 ? <><label>Repository<select value={adoptRepositoryId} onChange={(event) => setAdoptRepositoryId(event.target.value)}>{cloneReadyRepositories.map((repository) => <option key={repository.id} value={repository.id}>{repository.name}</option>)}</select></label><label>Pull request<input name="pull_request" required placeholder="33 or https://github.com/owner/repo/pull/33" /></label><div className="adopt-work-actions"><button type="button" onClick={() => setPane("menu")}>Cancel</button><button className="primary" type="submit" disabled={busy}>{busy ? "Adopting…" : "Adopt pull request"}</button></div></> : <p>Clone a project repository before adopting existing work.</p>}
+                      <p>Attach this ticket to work that already exists. Branch is the primary source; a PR number or URL is optional and can be used to resolve the branch automatically.</p>
+                      {cloneReadyRepositories.length > 0 ? <><label>Repository<select value={adoptRepositoryId} onChange={(event) => setAdoptRepositoryId(event.target.value)}>{cloneReadyRepositories.map((repository) => <option key={repository.id} value={repository.id}>{repository.name}</option>)}</select></label><label>Branch<input name="branch" placeholder="agent/pr-feedback-activity" /></label><div className="adopt-work-separator"><span>or</span></div><label>Pull request <span>optional</span><input name="pull_request" placeholder="33 or https://github.com/owner/repo/pull/33" /></label><div className="adopt-work-actions"><button type="button" onClick={() => setPane("menu")}>Cancel</button><button className="primary" type="submit" disabled={busy}>{busy ? "Adopting…" : "Adopt existing work"}</button></div></> : <p>Clone a project repository before adopting existing work.</p>}
                       {error && <span className="ticket-lifecycle-error">{error}</span>}
                     </form>
                   )}
