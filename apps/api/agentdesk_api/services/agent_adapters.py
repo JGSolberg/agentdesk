@@ -83,27 +83,13 @@ class CodexCliAdapter:
 
     def build_plan(self, agent: Agent, run: AgentRun, workspace: Workspace) -> ExecutionPlan:
         executable = shutil.which("codex") or "codex"
-        # In Codex 0.147+, --approve-for-me already routes approval requests
-        # through the workspace-write sandbox, so it is mutually exclusive with
-        # passing --sandbox workspace-write explicitly.
-        command = [
-            executable,
-            "exec",
-            "--approve-for-me",
-            "--json",
-            "--ephemeral",
-        ]
+        command = [executable, "exec", "--approve-for-me", "--json", "--ephemeral"]
         if agent.model:
             command.extend(["--model", agent.model])
         command.append("-")
         environment = _agentdesk_environment(run, workspace)
         environment.update(_workspace_tool_environment(workspace))
-        return ExecutionPlan(
-            command=command,
-            shell=False,
-            environment=environment,
-            stdin=_codex_prompt(run.context_snapshot),
-        )
+        return ExecutionPlan(command=command, shell=False, environment=environment, stdin=_codex_prompt(run.context_snapshot))
 
     def parse_output(self, stdout: str, stderr: str, returncode: int) -> ExecutionOutcome:
         logs: list[tuple[str, str]] = []
@@ -121,8 +107,7 @@ class CodexCliAdapter:
                 item_type = str(item.get("type", "item"))
                 if item_type == "agent_message" and item.get("text"):
                     final_message = str(item["text"]); logs.append(("agent", final_message))
-                elif item_type == "command_execution":
-                    logs.append(("command", f"{item.get('command', 'command')} [{item.get('status', '')}]".rstrip()))
+                elif item_type == "command_execution": logs.append(("command", f"{item.get('command', 'command')} [{item.get('status', '')}]".rstrip()))
                 elif item_type in {"file_change", "file_changes"}: logs.append(("file", json.dumps(item, ensure_ascii=False)))
                 elif item_type == "mcp_tool_call": logs.append(("tool", json.dumps(item, ensure_ascii=False)))
                 elif item_type == "web_search": logs.append(("web", json.dumps(item, ensure_ascii=False)))
@@ -188,13 +173,15 @@ Relevant files:
 Instructions:
 - Work only on this ticket in the current worktree.
 - Inspect the repository and follow project instructions such as AGENTS.md.
+- Before implementation, inspect Git status/history and the fetched origin default branch. If the current branch is behind or conflicts with the default branch, integrate the latest default-branch changes into this current branch and resolve all conflicts before continuing.
+- You may merge or rebase the fetched default branch into the current AgentDesk branch solely to keep this workspace current. Do not merge this branch into another branch.
 - Make the smallest coherent implementation that satisfies the ticket.
-- Run relevant tests, linters, or builds when practical.
+- Run relevant tests, linters, or builds when practical after conflict resolution and implementation.
 - Keep temporary files and tool caches inside the current worktree; AgentDesk provides workspace-local TMP/TEMP and UV cache paths.
-- Do not push, merge, or create a pull request.
+- Do not push or create a pull request.
 - Do not create or switch branches; AgentDesk owns the worktree and branch.
-- Leave all resulting changes in the worktree for human review.
-- Finish with a concise summary of changes, validation performed, and anything that still needs human attention.
+- Leave the branch conflict-free and all resulting work in the worktree for human review.
+- Finish with a concise summary of changes, integration/conflict resolution performed, validation performed, and anything that still needs human attention.
 """
 
 
