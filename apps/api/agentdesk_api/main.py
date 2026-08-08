@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, Response, status
+from fastapi import Depends, FastAPI, Query, Response, status
 from sqlalchemy.orm import Session
 
 from .database import get_db
@@ -110,8 +110,12 @@ def create_ticket(project_id: str, payload: TicketCreate, db: Session = Depends(
 
 
 @app.get("/projects/{project_id}/tickets", response_model=list[TicketRead])
-def list_tickets(project_id: str, db: Session = Depends(get_db)) -> list[Ticket]:
-    return ticket_service.list_tickets(db, project_id)
+def list_tickets(
+    project_id: str,
+    include_archived: bool = Query(default=False),
+    db: Session = Depends(get_db),
+) -> list[Ticket]:
+    return ticket_service.list_tickets(db, project_id, include_archived=include_archived)
 
 
 @app.get("/projects/{project_id}/tickets/ready", response_model=list[TicketRead])
@@ -132,6 +136,12 @@ def list_ticket_events(ticket_id: str, db: Session = Depends(get_db)) -> list[Ti
 @app.patch("/tickets/{ticket_id}", response_model=TicketRead)
 def update_ticket(ticket_id: str, payload: TicketUpdate, db: Session = Depends(get_db)) -> Ticket:
     return ticket_service.update_ticket(db, ticket_id, payload)
+
+
+@app.delete("/tickets/{ticket_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_ticket(ticket_id: str, db: Session = Depends(get_db)) -> Response:
+    ticket_service.delete_ticket(db, ticket_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.post("/tickets/{ticket_id}/dependencies/{dependency_id}", response_model=TicketRead)
