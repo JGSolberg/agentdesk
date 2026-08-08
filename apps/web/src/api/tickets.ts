@@ -60,6 +60,7 @@ export type TicketUpdate = Partial<
     | "requires_human"
     | "archived"
     | "order"
+    | "parent_id"
   >
 >;
 
@@ -115,6 +116,14 @@ export function createTicket(
 
 export function updateTicket(ticketId: string, payload: TicketUpdate): Promise<Ticket> {
   return request<Ticket>(`/tickets/${ticketId}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export function addTicketDependency(ticketId: string, dependencyId: string): Promise<Ticket> {
+  return request<Ticket>(`/tickets/${ticketId}/dependencies/${dependencyId}`, { method: "POST" });
+}
+
+export function removeTicketDependency(ticketId: string, dependencyId: string): Promise<Ticket> {
+  return request<Ticket>(`/tickets/${ticketId}/dependencies/${dependencyId}`, { method: "DELETE" });
 }
 
 export function deleteTicket(ticketId: string): Promise<void> {
