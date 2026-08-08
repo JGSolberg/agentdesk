@@ -30,9 +30,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 18px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #202630;
+  margin-bottom: 10px;
 }
 
 .project-view-tabs { display: inline-flex; padding: 3px; border: 1px solid #29313d; border-radius: 9px; background: #0e1218; }
@@ -40,6 +38,31 @@
 .project-view-tabs button.active { background: #1b222d; color: #eef2f7; }
 .show-completed-toggle { display: flex; align-items: center; gap: 8px; color: #8792a3; font-size: 12px; cursor: pointer; }
 .show-completed-toggle input { accent-color: #7585ff; }
+
+.project-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 190px)) auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 10px;
+  border: 1px solid #202630;
+  border-radius: 10px;
+  background: #0e1218;
+}
+.project-filter-bar select,
+.clear-project-filters {
+  min-height: 34px;
+  border: 1px solid #2b313d;
+  border-radius: 7px;
+  background: #121720;
+  color: #aeb8c7;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 11px;
+}
+.clear-project-filters { justify-self: start; cursor: pointer; color: #d0d7e2; }
+.clear-project-filters:hover { border-color: #4a5567; }
 
 .board-error { margin-bottom: 18px; }
 .attention-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
@@ -92,10 +115,12 @@
   .ticket-composer { grid-template-columns: 1fr 1fr; }
   .ticket-composer input { grid-column: 1 / -1; }
   .project-view-toolbar { align-items: flex-start; flex-direction: column; }
+  .project-filter-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 560px) {
   .ticket-composer { grid-template-columns: 1fr; }
   .ticket-composer input { grid-column: auto; }
+  .project-filter-bar { grid-template-columns: 1fr; }
   .epic-card-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
