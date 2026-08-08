@@ -45,6 +45,7 @@ migrate:
 # Create/update the local AgentDesk project and roadmap
 bootstrap: migrate
     uv run python -m agentdesk_api.bootstrap
+    uv run python -m agentdesk_api.roadmap_identity
 
 # Show current database migration revision
 migration-status:
