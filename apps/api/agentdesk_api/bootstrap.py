@@ -9,10 +9,8 @@ from .models import Project, Ticket, TicketPriority, TicketStatus, TicketType
 from .schemas import ProjectCreate, TicketCreate
 from .services import project_service, ticket_service
 
-
 PROJECT_NAME = "AgentDesk"
 PROJECT_DESCRIPTION = "Local-first project management and agent orchestration for software development."
-
 
 @dataclass(frozen=True)
 class RoadmapItem:
@@ -22,7 +20,6 @@ class RoadmapItem:
     status: TicketStatus = TicketStatus.BACKLOG
     priority: TicketPriority = TicketPriority.MEDIUM
 
-
 ROADMAP: tuple[RoadmapItem, ...] = (
     RoadmapItem("AD-1", "Project persistence", 1, TicketStatus.DONE),
     RoadmapItem("AD-2", "Ticket persistence", 1, TicketStatus.DONE),
@@ -30,7 +27,7 @@ ROADMAP: tuple[RoadmapItem, ...] = (
     RoadmapItem("AD-4", "Dependencies", 1, TicketStatus.DONE),
     RoadmapItem("AD-5", "Application shell", 2, TicketStatus.DONE),
     RoadmapItem("AD-6", "Kanban board", 2, TicketStatus.DONE),
-    RoadmapItem("AD-7", "Ticket detail view", 2, TicketStatus.DONE),
+    RoadmapItem("AD-7", "Ticket detail view", 2, TicketStatus.IN_PROGRESS, TicketPriority.HIGH),
     RoadmapItem("AD-8", "Event model", 3),
     RoadmapItem("AD-9", "Activity UI", 3),
     RoadmapItem("AD-10", "Repository registration", 4),
@@ -66,45 +63,45 @@ MILESTONE_NAMES = {
     10: "Chief of Staff console",
 }
 
-
 def _find_project(db: Session) -> Project | None:
     return db.scalar(select(Project).where(Project.name == PROJECT_NAME).order_by(Project.created_at))
 
-
 def _existing_by_code(db: Session, project_id: str) -> dict[str, Ticket]:
-    tickets = ticket_service.list_tickets(db, project_id)
     found: dict[str, Ticket] = {}
-    for ticket in tickets:
+    for ticket in ticket_service.list_tickets(db, project_id):
         code = ticket.title.split(" ", 1)[0]
         if code.startswith("AD-"):
             found[code] = ticket
     return found
 
-
 def bootstrap(db: Session) -> tuple[Project, int]:
     project = _find_project(db)
     if project is None:
         project = project_service.create_project(
-            db,
-            ProjectCreate(name=PROJECT_NAME, description=PROJECT_DESCRIPTION),
+            db, ProjectCreate(name=PROJECT_NAME, description=PROJECT_DESCRIPTION)
         )
 
     existing = _existing_by_code(db, project.id)
     created = 0
     milestone_epics: dict[int, Ticket] = {}
-
     all_tickets = ticket_service.list_tickets(db, project.id)
+
     for milestone, name in MILESTONE_NAMES.items():
         epic_title = f"Milestone {milestone} — {name}"
         epic = next((ticket for ticket in all_tickets if ticket.title == epic_title), None)
         if epic is None:
+            epic_status = (
+                TicketStatus.DONE if milestone == 1
+                else TicketStatus.IN_PROGRESS if milestone == 2
+                else TicketStatus.BACKLOG
+            )
             epic = ticket_service.create_ticket(
                 db,
                 project.id,
                 TicketCreate(
                     title=epic_title,
                     type=TicketType.EPIC,
-                    status=TicketStatus.DONE if milestone <= 2 else TicketStatus.BACKLOG,
+                    status=epic_status,
                     priority=TicketPriority.HIGH,
                     order=float(milestone * 100),
                 ),
@@ -137,13 +134,11 @@ def bootstrap(db: Session) -> tuple[Project, int]:
 
     return project, created
 
-
 def main() -> None:
     with SessionLocal() as db:
         project, created = bootstrap(db)
         total = len(ticket_service.list_tickets(db, project.id))
         print(f"AgentDesk bootstrap complete: {created} created, {total} total tickets.")
-
 
 if __name__ == "__main__":
     main()
