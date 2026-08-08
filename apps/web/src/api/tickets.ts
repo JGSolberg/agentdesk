@@ -40,6 +40,26 @@ export type Ticket = {
   assignee?: string | null;
 };
 
+export type TicketUpdate = Partial<
+  Pick<
+    Ticket,
+    | "title"
+    | "type"
+    | "status"
+    | "priority"
+    | "description"
+    | "goal"
+    | "acceptance_criteria"
+    | "constraints"
+    | "definition_of_done"
+    | "relevant_files"
+    | "context"
+    | "estimated_complexity"
+    | "requires_human"
+    | "order"
+  >
+>;
+
 export type TicketEvent = {
   id: string;
   ticket_id: string;
@@ -96,10 +116,7 @@ export function createTicket(
   });
 }
 
-export function updateTicket(
-  ticketId: string,
-  payload: Partial<Pick<Ticket, "status" | "order" | "title" | "priority">>,
-): Promise<Ticket> {
+export function updateTicket(ticketId: string, payload: TicketUpdate): Promise<Ticket> {
   return request<Ticket>(`/tickets/${ticketId}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
