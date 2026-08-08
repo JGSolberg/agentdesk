@@ -40,7 +40,7 @@ def _workspace_path(workspace: Workspace) -> Path:
 
 def _existing_pr(path: Path, branch: str) -> dict[str, object] | None:
     try:
-        result = _run(["gh", "pr", "view", branch, "--json", "url,number,state,mergedAt"], cwd=path, allow_failure=True)
+        result = _run(["gh", "pr", "view", branch, "--json", "url,number,state,mergedAt,headRefOid"], cwd=path, allow_failure=True)
     except HTTPException as exc:
         if exc.status_code == 503:
             return None
@@ -59,6 +59,7 @@ def _existing_pr(path: Path, branch: str) -> dict[str, object] | None:
         "number": payload.get("number") if isinstance(payload.get("number"), int) else None,
         "state": str(payload.get("state") or "").lower(),
         "merged": bool(payload.get("mergedAt")),
+        "head_sha": str(payload.get("headRefOid") or "").strip() or None,
     }
 
 
@@ -110,9 +111,17 @@ def _has_unmerged_conflicts(path: Path) -> bool:
     return bool(_run(["git", "diff", "--name-only", "--diff-filter=U"], cwd=path, allow_failure=True).stdout.strip())
 
 
-def _has_unpublished_work(path: Path) -> bool:
+def _has_unpublished_work(path: Path, existing_pr: dict[str, object] | None) -> bool:
     if _status_lines(path):
         return True
+    head = _run(["git", "rev-parse", "HEAD"], cwd=path, allow_failure=True)
+    if head.returncode != 0:
+        return False
+    local_head = head.stdout.strip()
+    if existing_pr is not None:
+        remote_head = str(existing_pr.get("head_sha") or "").strip()
+        if remote_head:
+            return local_head != remote_head
     upstream = _run(["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], cwd=path, allow_failure=True)
     if upstream.returncode != 0:
         return False
@@ -143,7 +152,7 @@ def workspace_review(db: Session, workspace_id: str) -> WorkspaceReview:
         workspace_id=workspace.id,
         branch=workspace.branch,
         clean=len(files) == 0,
-        unpublished=_has_unpublished_work(path),
+        unpublished=_has_unpublished_work(path, existing),
         files=files,
         additions=additions,
         deletions=deletions,
