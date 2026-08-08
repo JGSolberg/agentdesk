@@ -7,6 +7,7 @@ import {
   createRepository,
   deleteRepository,
   listRepositories,
+  removeManagedClone,
   updateRepository,
   type Repository,
   type RepositoryProvider,
@@ -107,6 +108,20 @@ export default function RepositoryPage() {
     }
   }
 
+  async function removeClone(repository: Repository) {
+    if (!window.confirm(`Remove AgentDesk's managed clone for “${repository.name}”?`)) return;
+    setBusyId(repository.id);
+    setError(null);
+    try {
+      await removeManagedClone(repository.id);
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to remove managed clone");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function remove(repository: Repository) {
     if (!window.confirm(`Delete repository registration “${repository.name}”?`)) return;
     setBusyId(repository.id);
@@ -156,6 +171,9 @@ export default function RepositoryPage() {
                   <button type="button" onClick={() => void clone(repository)} disabled={busyId === repository.id}>
                     {busyId === repository.id ? "Working…" : repository.managed_path ? "Refresh clone" : "Clone"}
                   </button>
+                  {repository.managed_path && (
+                    <button type="button" onClick={() => void removeClone(repository)} disabled={busyId === repository.id}>Remove clone</button>
+                  )}
                   <button type="button" onClick={() => startEdit(repository)}>Edit</button>
                   <button type="button" className="danger-button" onClick={() => void remove(repository)}>Delete</button>
                 </div>
