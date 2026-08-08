@@ -38,6 +38,8 @@ export type WorkspaceReview = {
   additions: number;
   deletions: number;
   diff: string;
+  pull_request_url: string | null;
+  pull_request_number: number | null;
 };
 
 export type WorkspacePublishResult = {
