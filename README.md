@@ -115,13 +115,13 @@ This README is the project checklist. Check items off only when the implementati
 
 ### AD-4: Dependencies
 
-- [ ] Add ticket-to-ticket dependency relationships.
-- [ ] Prevent obvious circular dependencies.
-- [ ] Expose blocked/unblocked state through the API.
-- [ ] Automatically identify tickets whose dependencies are complete.
-- [ ] Add dependency tests.
+- [x] Add ticket-to-ticket dependency relationships.
+- [x] Prevent obvious circular dependencies.
+- [x] Expose blocked/unblocked state through the API.
+- [x] Automatically identify tickets whose dependencies are complete.
+- [x] Add dependency tests.
 
-**Milestone complete when:** AgentDesk can reliably represent a real software backlog without any AI functionality.
+**Milestone 1 complete:** AgentDesk can represent projects, structured software work, hierarchy, workflow state, and dependency-aware readiness without any AI functionality.
 
 ## Milestone 2 — Usable project UI
 
