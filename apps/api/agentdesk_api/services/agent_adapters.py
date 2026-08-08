@@ -14,6 +14,7 @@ class ExecutionPlan:
     command: str | list[str]
     shell: bool
     environment: dict[str, str]
+    stdin: str | None = None
 
 
 @dataclass(frozen=True)
@@ -51,10 +52,8 @@ class LocalCommandAdapter:
 
     def parse_output(self, stdout: str, stderr: str, returncode: int) -> ExecutionOutcome:
         logs: list[tuple[str, str]] = []
-        if stdout.strip():
-            logs.append(("stdout", stdout.rstrip()))
-        if stderr.strip():
-            logs.append(("stderr", stderr.rstrip()))
+        if stdout.strip(): logs.append(("stdout", stdout.rstrip()))
+        if stderr.strip(): logs.append(("stderr", stderr.rstrip()))
         if returncode == 0:
             return ExecutionOutcome(logs=logs, result=stdout.rstrip() or "Command completed successfully", error=None)
         return ExecutionOutcome(logs=logs, result=stdout.rstrip() or None, error=f"Agent command exited with code {returncode}")
@@ -68,58 +67,41 @@ class CodexCliAdapter:
         command = [executable, "exec", "--sandbox", "workspace-write", "--json", "--ephemeral"]
         if agent.model:
             command.extend(["--model", agent.model])
-        command.append(_codex_prompt(run.context_snapshot))
-        return ExecutionPlan(command=command, shell=False, environment=_agentdesk_environment(run, workspace))
+        command.append("-")
+        return ExecutionPlan(
+            command=command,
+            shell=False,
+            environment=_agentdesk_environment(run, workspace),
+            stdin=_codex_prompt(run.context_snapshot),
+        )
 
     def parse_output(self, stdout: str, stderr: str, returncode: int) -> ExecutionOutcome:
         logs: list[tuple[str, str]] = []
         final_message: str | None = None
         parse_errors = 0
-
         for raw_line in stdout.splitlines():
             line = raw_line.strip()
-            if not line:
-                continue
-            try:
-                event = json.loads(line)
+            if not line: continue
+            try: event = json.loads(line)
             except json.JSONDecodeError:
-                parse_errors += 1
-                logs.append(("codex", line))
-                continue
-
+                parse_errors += 1; logs.append(("codex", line)); continue
             event_type = str(event.get("type", "codex"))
             item = event.get("item") if isinstance(event.get("item"), dict) else None
             if item:
                 item_type = str(item.get("type", "item"))
                 if item_type == "agent_message" and item.get("text"):
-                    final_message = str(item["text"])
-                    logs.append(("agent", final_message))
+                    final_message = str(item["text"]); logs.append(("agent", final_message))
                 elif item_type == "command_execution":
-                    command = item.get("command", "command")
-                    status = item.get("status", "")
-                    logs.append(("command", f"{command} [{status}]".rstrip()))
-                elif item_type in {"file_change", "file_changes"}:
-                    logs.append(("file", json.dumps(item, ensure_ascii=False)))
-                elif item_type == "mcp_tool_call":
-                    logs.append(("tool", json.dumps(item, ensure_ascii=False)))
-                elif item_type == "web_search":
-                    logs.append(("web", json.dumps(item, ensure_ascii=False)))
-                elif item_type == "plan_update":
-                    logs.append(("plan", json.dumps(item, ensure_ascii=False)))
-            elif event_type == "thread.started":
-                logs.append(("codex", f"Thread {event.get('thread_id', 'started')}"))
-            elif event_type == "turn.completed":
-                usage = event.get("usage")
-                if usage:
-                    logs.append(("usage", json.dumps(usage, ensure_ascii=False)))
-            elif event_type in {"turn.failed", "error"}:
-                logs.append(("error", json.dumps(event, ensure_ascii=False)))
-
-        if stderr.strip():
-            logs.append(("stderr", stderr.rstrip()))
-        if parse_errors:
-            logs.append(("codex", f"{parse_errors} non-JSON Codex output line(s) captured verbatim"))
-
+                    logs.append(("command", f"{item.get('command', 'command')} [{item.get('status', '')}]".rstrip()))
+                elif item_type in {"file_change", "file_changes"}: logs.append(("file", json.dumps(item, ensure_ascii=False)))
+                elif item_type == "mcp_tool_call": logs.append(("tool", json.dumps(item, ensure_ascii=False)))
+                elif item_type == "web_search": logs.append(("web", json.dumps(item, ensure_ascii=False)))
+                elif item_type == "plan_update": logs.append(("plan", json.dumps(item, ensure_ascii=False)))
+            elif event_type == "thread.started": logs.append(("codex", f"Thread {event.get('thread_id', 'started')}"))
+            elif event_type == "turn.completed" and event.get("usage"): logs.append(("usage", json.dumps(event["usage"], ensure_ascii=False)))
+            elif event_type in {"turn.failed", "error"}: logs.append(("error", json.dumps(event, ensure_ascii=False)))
+        if stderr.strip(): logs.append(("stderr", stderr.rstrip()))
+        if parse_errors: logs.append(("codex", f"{parse_errors} non-JSON Codex output line(s) captured verbatim"))
         if returncode == 0:
             return ExecutionOutcome(logs=logs, result=final_message or "Codex completed successfully", error=None)
         return ExecutionOutcome(logs=logs, result=final_message, error=f"Codex exited with code {returncode}")
@@ -127,10 +109,8 @@ class CodexCliAdapter:
 
 def _codex_prompt(context: dict) -> str:
     def bullets(values: object) -> str:
-        if not isinstance(values, list) or not values:
-            return "- None"
+        if not isinstance(values, list) or not values: return "- None"
         return "\n".join(f"- {value}" for value in values)
-
     return f"""You are implementing an AgentDesk ticket in an isolated Git worktree.
 
 Ticket: {context.get('ticket_key', '')} — {context.get('title', '')}
@@ -170,12 +150,7 @@ Instructions:
 """
 
 
-_ADAPTERS: dict[str, AgentAdapter] = {
-    "local": LocalCommandAdapter(),
-    "command": LocalCommandAdapter(),
-    "codex": CodexCliAdapter(),
-}
-
+_ADAPTERS: dict[str, AgentAdapter] = {"local": LocalCommandAdapter(), "command": LocalCommandAdapter(), "codex": CodexCliAdapter()}
 
 def get_adapter(provider: str) -> AgentAdapter | None:
     return _ADAPTERS.get(provider.lower())
