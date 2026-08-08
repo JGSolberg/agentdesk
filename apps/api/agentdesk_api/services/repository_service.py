@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from ..models import Repository
-from ..repositories import repository_repository
+from ..repositories import repository_repository, workspace_repository
 from ..schemas import RepositoryCreate, RepositoryUpdate
 from .project_service import require_project
 
@@ -50,11 +50,7 @@ def create_repository(db: Session, project_id: str, payload: RepositoryCreate) -
     make_primary = payload.is_primary or not existing
     if make_primary:
         _clear_other_primary(db, project_id)
-    repository = Repository(
-        project_id=project_id,
-        **payload.model_dump(exclude={"is_primary"}),
-        is_primary=make_primary,
-    )
+    repository = Repository(project_id=project_id, **payload.model_dump(exclude={"is_primary"}), is_primary=make_primary)
     return repository_repository.save(db, repository)
 
 
@@ -74,34 +70,28 @@ def clone_or_refresh_repository(db: Session, repository_id: str) -> Repository:
     repository = require_repository(db, repository_id)
     path = managed_clone_path(repository)
     path.parent.mkdir(parents=True, exist_ok=True)
-
     try:
         if path.exists():
             if not (path / ".git").exists():
                 raise HTTPException(status_code=409, detail="Managed clone path exists but is not a Git repository")
             subprocess.run(["git", "-C", str(path), "fetch", "--prune", "origin"], check=True, capture_output=True, text=True)
         else:
-            subprocess.run(
-                ["git", "clone", "--branch", repository.default_branch, "--single-branch", repository.remote_url, str(path)],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+            subprocess.run(["git", "clone", "--branch", repository.default_branch, "--single-branch", repository.remote_url, str(path)], check=True, capture_output=True, text=True)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail="Git executable was not found") from exc
     except subprocess.CalledProcessError as exc:
         detail = exc.stderr.strip() or exc.stdout.strip() or "Git operation failed"
         raise HTTPException(status_code=502, detail=detail) from exc
-
     repository.managed_path = str(path)
     return repository_repository.save(db, repository)
 
 
 def remove_managed_clone(db: Session, repository_id: str) -> Repository:
     repository = require_repository(db, repository_id)
+    if workspace_repository.list_for_repository(db, repository_id, active_only=True):
+        raise HTTPException(status_code=409, detail="Remove active workspaces before removing the managed clone")
     if not repository.managed_path:
         return repository
-
     path = Path(repository.managed_path).resolve()
     root = (_agentdesk_home() / "repositories" / repository.id).resolve()
     if path != root / "clone" or root not in path.parents:
@@ -114,6 +104,8 @@ def remove_managed_clone(db: Session, repository_id: str) -> Repository:
 
 def delete_repository(db: Session, repository_id: str) -> None:
     repository = require_repository(db, repository_id)
+    if workspace_repository.list_for_repository(db, repository_id, active_only=True):
+        raise HTTPException(status_code=409, detail="Remove active workspaces before deleting this repository")
     if repository.managed_path:
         raise HTTPException(status_code=409, detail="Remove the managed clone before deleting this repository registration")
     was_primary = repository.is_primary
