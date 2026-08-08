@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { deleteTicket, updateTicket, type Ticket } from "./api/tickets";
+import TicketRelationships from "./TicketRelationships";
 
 export default function TicketLifecycleActions({ ticket, onChanged }: { ticket: Ticket; onChanged: () => Promise<void> }) {
   const navigate = useNavigate();
@@ -35,28 +36,31 @@ export default function TicketLifecycleActions({ ticket, onChanged }: { ticket: 
   }
 
   return (
-    <div className="ticket-lifecycle-wrap">
-      <div className="ticket-lifecycle-actions">
-        <button
-          type="button"
-          disabled={busy || ticket.archived}
-          onClick={() => void mutate(() => updateTicket(ticket.id, { status: ticket.status === "cancelled" ? "backlog" : "cancelled" }))}
-        >
-          {ticket.status === "cancelled" ? "Reopen" : "Cancel ticket"}
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void mutate(() => updateTicket(ticket.id, { archived: !ticket.archived }))}
-        >
-          {ticket.archived ? "Unarchive" : "Archive"}
-        </button>
-        <button type="button" className="danger-button" disabled={busy} onClick={() => void remove()}>
-          Delete
-        </button>
+    <>
+      <div className="ticket-lifecycle-wrap">
+        <div className="ticket-lifecycle-actions">
+          <button
+            type="button"
+            disabled={busy || ticket.archived}
+            onClick={() => void mutate(() => updateTicket(ticket.id, { status: ticket.status === "cancelled" ? "backlog" : "cancelled" }))}
+          >
+            {ticket.status === "cancelled" ? "Reopen" : "Cancel ticket"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void mutate(() => updateTicket(ticket.id, { archived: !ticket.archived }))}
+          >
+            {ticket.archived ? "Unarchive" : "Archive"}
+          </button>
+          <button type="button" className="danger-button" disabled={busy} onClick={() => void remove()}>
+            Delete
+          </button>
+        </div>
+        {ticket.archived && <span className="ticket-lifecycle-note">Archived tickets are hidden from the project board.</span>}
+        {error && <span className="ticket-lifecycle-error">{error}</span>}
       </div>
-      {ticket.archived && <span className="ticket-lifecycle-note">Archived tickets are hidden from the project board.</span>}
-      {error && <span className="ticket-lifecycle-error">{error}</span>}
-    </div>
+      <TicketRelationships ticket={ticket} onChanged={onChanged} />
+    </>
   );
 }
