@@ -91,3 +91,14 @@ class TicketRead(BaseModel):
     order: float
     created_at: datetime
     updated_at: datetime
+
+
+class TicketEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    ticket_id: str
+    event_type: str
+    actor: str
+    payload: dict
+    created_at: datetime

@@ -1,8 +1,10 @@
+from enum import Enum
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from ..models import Project, Ticket, TicketStatus, project_ticket_prefix
-from ..repositories import ticket_repository
+from ..models import Project, Ticket, TicketEvent, TicketStatus, project_ticket_prefix
+from ..repositories import event_repository, ticket_repository
 from ..schemas import TicketCreate, TicketUpdate
 from .project_service import require_project
 
@@ -14,9 +16,29 @@ def require_ticket(db: Session, ticket_id: str) -> Ticket:
     return ticket
 
 
-def _validated_parent(
-    db: Session, project_id: str, parent_id: str | None, ticket_id: str | None = None
-) -> Ticket | None:
+def list_events(db: Session, ticket_id: str) -> list[TicketEvent]:
+    require_ticket(db, ticket_id)
+    return event_repository.list_for_ticket(db, ticket_id)
+
+
+def _json_value(value):
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, list):
+        return [_json_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _json_value(item) for key, item in value.items()}
+    return value
+
+
+def _record_event(db: Session, ticket_id: str, event_type: str, payload: dict) -> None:
+    event_repository.add(
+        db,
+        TicketEvent(ticket_id=ticket_id, event_type=event_type, actor="user", payload=_json_value(payload)),
+    )
+
+
+def _validated_parent(db: Session, project_id: str, parent_id: str | None, ticket_id: str | None = None) -> Ticket | None:
     if parent_id is None:
         return None
     parent = ticket_repository.get(db, parent_id)
@@ -83,7 +105,9 @@ def create_ticket(db: Session, project_id: str, payload: TicketCreate) -> Ticket
         requires_human=payload.requires_human,
         order=payload.order,
     )
-    return ticket_repository.save(db, ticket)
+    ticket = ticket_repository.save(db, ticket)
+    _record_event(db, ticket.id, "ticket_created", {"title": ticket.title, "status": ticket.status})
+    return ticket
 
 
 def list_tickets(db: Session, project_id: str) -> list[Ticket]:
@@ -104,12 +128,27 @@ def update_ticket(db: Session, ticket_id: str, payload: TicketUpdate) -> Ticket:
     if changes.get("status") == TicketStatus.READY and ticket.is_blocked:
         raise HTTPException(status_code=409, detail="Ticket cannot be Ready while dependencies are incomplete")
 
+    before = {field: getattr(ticket, field) for field in changes}
     status_changed = "status" in changes and changes["status"] != ticket.status
     for field, value in changes.items():
         setattr(ticket, field, value)
     if status_changed:
         _reconcile_dependents(ticket)
-    return ticket_repository.save(db, ticket)
+    ticket = ticket_repository.save(db, ticket)
+    if changes:
+        _record_event(
+            db,
+            ticket.id,
+            "ticket_updated",
+            {
+                "changes": {
+                    field: {"from": before[field], "to": getattr(ticket, field)}
+                    for field in changes
+                    if before[field] != getattr(ticket, field)
+                }
+            },
+        )
+    return ticket
 
 
 def add_dependency(db: Session, ticket_id: str, dependency_id: str) -> Ticket:
@@ -126,7 +165,9 @@ def add_dependency(db: Session, ticket_id: str, dependency_id: str) -> Ticket:
 
     ticket.dependencies.append(dependency)
     _reconcile_waiting_status(ticket)
-    return ticket_repository.save(db, ticket)
+    ticket = ticket_repository.save(db, ticket)
+    _record_event(db, ticket.id, "dependency_added", {"dependency_id": dependency.id, "dependency_key": dependency.ticket_key})
+    return ticket
 
 
 def remove_dependency(db: Session, ticket_id: str, dependency_id: str) -> Ticket:
@@ -136,4 +177,6 @@ def remove_dependency(db: Session, ticket_id: str, dependency_id: str) -> Ticket
         raise HTTPException(status_code=404, detail="Dependency relationship not found")
     ticket.dependencies.remove(dependency)
     _reconcile_waiting_status(ticket)
-    return ticket_repository.save(db, ticket)
+    ticket = ticket_repository.save(db, ticket)
+    _record_event(db, ticket.id, "dependency_removed", {"dependency_id": dependency.id, "dependency_key": dependency.ticket_key})
+    return ticket

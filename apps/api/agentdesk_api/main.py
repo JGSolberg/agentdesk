@@ -2,12 +2,13 @@ from fastapi import Depends, FastAPI, status
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from .models import Project, Ticket
+from .models import Project, Ticket, TicketEvent
 from .schemas import (
     ProjectCreate,
     ProjectRead,
     ProjectUpdate,
     TicketCreate,
+    TicketEventRead,
     TicketRead,
     TicketUpdate,
 )
@@ -41,11 +42,7 @@ def update_project(project_id: str, payload: ProjectUpdate, db: Session = Depend
     return project_service.update_project(db, project_id, payload)
 
 
-@app.post(
-    "/projects/{project_id}/tickets",
-    response_model=TicketRead,
-    status_code=status.HTTP_201_CREATED,
-)
+@app.post("/projects/{project_id}/tickets", response_model=TicketRead, status_code=status.HTTP_201_CREATED)
 def create_ticket(project_id: str, payload: TicketCreate, db: Session = Depends(get_db)) -> Ticket:
     return ticket_service.create_ticket(db, project_id, payload)
 
@@ -63,6 +60,11 @@ def list_ready_tickets(project_id: str, db: Session = Depends(get_db)) -> list[T
 @app.get("/tickets/{ticket_id}", response_model=TicketRead)
 def get_ticket(ticket_id: str, db: Session = Depends(get_db)) -> Ticket:
     return ticket_service.require_ticket(db, ticket_id)
+
+
+@app.get("/tickets/{ticket_id}/events", response_model=list[TicketEventRead])
+def list_ticket_events(ticket_id: str, db: Session = Depends(get_db)) -> list[TicketEvent]:
+    return ticket_service.list_events(db, ticket_id)
 
 
 @app.patch("/tickets/{ticket_id}", response_model=TicketRead)

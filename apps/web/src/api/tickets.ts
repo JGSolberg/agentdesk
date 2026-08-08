@@ -40,6 +40,15 @@ export type Ticket = {
   assignee?: string | null;
 };
 
+export type TicketEvent = {
+  id: string;
+  ticket_id: string;
+  event_type: string;
+  actor: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+};
+
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -71,6 +80,10 @@ export function listTickets(projectId: string): Promise<Ticket[]> {
 
 export function getTicket(ticketId: string): Promise<Ticket> {
   return request<Ticket>(`/tickets/${ticketId}`);
+}
+
+export function listTicketEvents(ticketId: string): Promise<TicketEvent[]> {
+  return request<TicketEvent[]>(`/tickets/${ticketId}/events`);
 }
 
 export function createTicket(
