@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { createAgent, createRun, executeRun, listAgents, listRuns, type Agent, type AgentRun } from "./api/agents";
 import type { TicketStatus, TicketType } from "./api/tickets";
 import type { Workspace } from "./api/workspaces";
+import ReviewChanges from "./ReviewChanges";
 
 type Props = {
   projectId: string;
@@ -49,6 +50,7 @@ export default function TicketRuns({ projectId, ticketId, ticketType, ticketStat
       setRuns((items) => [run, ...items]);
       const completed = await executeRun(run.id);
       setRuns((items) => items.map((item) => item.id === completed.id ? completed : item));
+      if (completed.status === "succeeded") window.location.reload();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Agent run failed"); }
     finally { setBusy(false); }
   }
@@ -75,6 +77,7 @@ export default function TicketRuns({ projectId, ticketId, ticketType, ticketStat
   }
 
   const activeWorkspaces = workspaces.filter((workspace) => workspace.status === "active");
+  const selectedWorkspace = activeWorkspaces.find((workspace) => workspace.id === workspaceId) ?? activeWorkspaces[0];
   const selectedAgent = agents.find((agent) => agent.id === agentId);
   const runDisabled = busy || !agentId || !workspaceId || (nonActionable && !allowNonActionable);
 
@@ -83,7 +86,7 @@ export default function TicketRuns({ projectId, ticketId, ticketType, ticketStat
     {showAgentForm && <form className="ticket-agent-form" onSubmit={addAgent}>
       <input name="name" placeholder="Agent name" required />
       <select value={newProvider} onChange={(event) => setNewProvider(event.target.value as "codex" | "local")}><option value="codex">Codex CLI</option><option value="local">Local command</option></select>
-      {newProvider === "codex" ? <><input name="model" placeholder="Model override (optional)" /><span className="ticket-agent-hint">Uses your installed and authenticated Codex CLI with workspace-write sandboxing.</span></> : <input name="command" placeholder='Command, e.g. python -c "print(\"hello\")"' required />}
+      {newProvider === "codex" ? <><input name="model" placeholder="Model override (optional)" /><span className="ticket-agent-hint">Uses your installed and authenticated Codex CLI with automatic workspace approval.</span></> : <input name="command" placeholder='Command, e.g. python -c "print(\"hello\")"' required />}
       <button disabled={busy} type="submit">Add agent</button>
     </form>}
     <div className="ticket-run-controls">
@@ -96,5 +99,6 @@ export default function TicketRuns({ projectId, ticketId, ticketType, ticketStat
     {activeWorkspaces.length === 0 && <p className="detail-empty">Create an active workspace before running an agent.</p>}
     {error && <p className="ticket-lifecycle-error">{error}</p>}
     <div className="ticket-run-list">{runs.map((run) => { const agent = agents.find((item) => item.id === run.agent_id); return <details className={`ticket-run-card run-${run.status}`} key={run.id}><summary><div><strong>{agent?.name ?? "Agent"}</strong><span>{agent?.provider ?? "agent"} · {new Date(run.created_at).toLocaleString()}</span></div><b>{run.status.replaceAll("_", " ")}</b></summary><div className="ticket-run-body">{run.error && <p className="ticket-lifecycle-error">{run.error}</p>}{run.result && <pre>{run.result}</pre>}{run.logs.length > 0 && <div className="ticket-run-logs">{run.logs.map((entry, index) => <div key={`${entry.timestamp}-${index}`}><span>{entry.level}</span><pre>{entry.message}</pre></div>)}</div>}</div></details>; })}{runs.length === 0 && <p className="detail-empty">No agent runs yet.</p>}</div>
+    {selectedWorkspace && <ReviewChanges ticketId={ticketId} ticketStatus={ticketStatus} workspace={selectedWorkspace} />}
   </section>;
 }
