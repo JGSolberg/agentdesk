@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+import os
+from pathlib import Path
+import subprocess
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -26,13 +32,28 @@ def _clear_other_primary(db: Session, project_id: str, repository_id: str | None
             db.add(repository)
 
 
+def _agentdesk_home() -> Path:
+    configured = os.getenv("AGENTDESK_HOME")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return (Path.home() / ".agentdesk").resolve()
+
+
+def managed_clone_path(repository: Repository) -> Path:
+    return _agentdesk_home() / "repositories" / repository.id / "clone"
+
+
 def create_repository(db: Session, project_id: str, payload: RepositoryCreate) -> Repository:
     require_project(db, project_id)
     existing = repository_repository.list_for_project(db, project_id)
     make_primary = payload.is_primary or not existing
     if make_primary:
         _clear_other_primary(db, project_id)
-    repository = Repository(project_id=project_id, **payload.model_dump(exclude={"is_primary"}), is_primary=make_primary)
+    repository = Repository(
+        project_id=project_id,
+        **payload.model_dump(exclude={"is_primary"}),
+        is_primary=make_primary,
+    )
     return repository_repository.save(db, repository)
 
 
@@ -41,13 +62,44 @@ def update_repository(db: Session, repository_id: str, payload: RepositoryUpdate
     changes = payload.model_dump(exclude_unset=True)
     if changes.get("is_primary"):
         _clear_other_primary(db, repository.project_id, repository.id)
+    if "remote_url" in changes and repository.managed_path:
+        raise HTTPException(status_code=409, detail="Remove the managed clone before changing its remote URL")
     for field, value in changes.items():
         setattr(repository, field, value)
     return repository_repository.save(db, repository)
 
 
+def clone_or_refresh_repository(db: Session, repository_id: str) -> Repository:
+    repository = require_repository(db, repository_id)
+    path = managed_clone_path(repository)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if path.exists():
+            if not (path / ".git").exists():
+                raise HTTPException(status_code=409, detail="Managed clone path exists but is not a Git repository")
+            subprocess.run(["git", "-C", str(path), "fetch", "--prune", "origin"], check=True, capture_output=True, text=True)
+        else:
+            subprocess.run(
+                ["git", "clone", "--branch", repository.default_branch, "--single-branch", repository.remote_url, str(path)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail="Git executable was not found") from exc
+    except subprocess.CalledProcessError as exc:
+        detail = exc.stderr.strip() or exc.stdout.strip() or "Git operation failed"
+        raise HTTPException(status_code=502, detail=detail) from exc
+
+    repository.managed_path = str(path)
+    return repository_repository.save(db, repository)
+
+
 def delete_repository(db: Session, repository_id: str) -> None:
     repository = require_repository(db, repository_id)
+    if repository.managed_path:
+        raise HTTPException(status_code=409, detail="Remove the managed clone before deleting this repository registration")
     was_primary = repository.is_primary
     project_id = repository.project_id
     repository_repository.delete(db, repository)
