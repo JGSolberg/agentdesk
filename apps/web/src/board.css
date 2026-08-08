@@ -2,65 +2,39 @@
   width: min(1600px, 100%);
 }
 
-.ticket-composer {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) 130px 130px auto;
-  gap: 10px;
-  margin-bottom: 16px;
-}
+.project-header-actions { display: flex; align-items: center; gap: 10px; }
+.ticket-create-wrap { position: relative; }
+.ticket-create-trigger { min-height: 36px; border: 1px solid #3d4655; border-radius: 8px; background: #e6eaff; color: #10131a; padding: 0 13px; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.ticket-create-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 30; display: grid; width: min(680px, calc(100vw - 56px)); gap: 13px; padding: 16px; border: 1px solid #343d4b; border-radius: 12px; background: #11161e; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35); }
+.ticket-create-panel header, .ticket-create-panel footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ticket-create-panel header { padding-bottom: 12px; border-bottom: 1px solid #252d38; }
+.ticket-create-panel header div { display: grid; gap: 3px; }
+.ticket-create-panel header span { color: #7f8a9b; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.ticket-create-panel header strong { color: #eef2f7; font-size: 14px; }
+.ticket-create-panel header button { border: 0; background: transparent; color: #7f8a9b; font-size: 20px; cursor: pointer; }
+.ticket-create-panel label { display: grid; gap: 6px; color: #99a4b5; font-size: 11px; font-weight: 700; }
+.ticket-create-panel label > span { color: #687487; font-weight: 400; }
+.ticket-create-panel input, .ticket-create-panel textarea, .ticket-create-panel select { width: 100%; box-sizing: border-box; border: 1px solid #303846; border-radius: 7px; background: #0d1219; color: #e2e8f0; padding: 9px 10px; font: inherit; font-weight: 400; }
+.ticket-create-panel textarea { resize: vertical; line-height: 1.45; }
+.ticket-create-panel input:focus, .ticket-create-panel textarea:focus, .ticket-create-panel select:focus { outline: 1px solid #7585ff; border-color: #7585ff; }
+.ticket-create-grid { display: grid; gap: 10px; }
+.ticket-create-grid.four-up { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ticket-create-checkbox { display: flex !important; align-items: center; gap: 8px !important; }
+.ticket-create-checkbox input { width: auto; }
+.ticket-create-panel footer { padding-top: 12px; border-top: 1px solid #252d38; justify-content: flex-end; }
+.ticket-create-panel footer button { border: 1px solid #303846; border-radius: 7px; background: #171d26; color: #cbd4e1; padding: 8px 12px; cursor: pointer; }
+.ticket-create-panel footer button[type="submit"] { background: #7585ff; border-color: #7585ff; color: white; font-weight: 750; }
+.ticket-create-panel footer button:disabled { opacity: .5; cursor: default; }
 
-.ticket-composer input,
-.ticket-composer select,
-.ticket-composer button {
-  min-height: 42px;
-  border: 1px solid #2b313d;
-  border-radius: 9px;
-  background: #121720;
-  color: #eef2f7;
-}
-
-.ticket-composer input,
-.ticket-composer select { padding: 0 12px; }
-.ticket-composer input::placeholder { color: #697386; }
-.ticket-composer button { padding: 0 17px; background: #e6eaff; color: #10131a; font-weight: 750; cursor: pointer; }
-.ticket-composer button:disabled { opacity: 0.45; cursor: default; }
-
-.project-view-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 10px;
-}
-
+.project-view-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
 .project-view-tabs { display: inline-flex; padding: 3px; border: 1px solid #29313d; border-radius: 9px; background: #0e1218; }
 .project-view-tabs button { border: 0; border-radius: 6px; background: transparent; color: #7f8a9b; padding: 7px 13px; font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }
 .project-view-tabs button.active { background: #1b222d; color: #eef2f7; }
 .show-completed-toggle { display: flex; align-items: center; gap: 8px; color: #8792a3; font-size: 12px; cursor: pointer; }
 .show-completed-toggle input { accent-color: #7585ff; }
 
-.project-filter-bar {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(140px, 190px)) auto;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 18px;
-  padding: 10px;
-  border: 1px solid #202630;
-  border-radius: 10px;
-  background: #0e1218;
-}
-.project-filter-bar select,
-.clear-project-filters {
-  min-height: 34px;
-  border: 1px solid #2b313d;
-  border-radius: 7px;
-  background: #121720;
-  color: #aeb8c7;
-  padding: 0 10px;
-  font: inherit;
-  font-size: 11px;
-}
+.project-filter-bar { display: grid; grid-template-columns: repeat(4, minmax(140px, 190px)) auto; gap: 8px; align-items: center; margin-bottom: 18px; padding: 10px; border: 1px solid #202630; border-radius: 10px; background: #0e1218; }
+.project-filter-bar select, .clear-project-filters { min-height: 34px; border: 1px solid #2b313d; border-radius: 7px; background: #121720; color: #aeb8c7; padding: 0 10px; font: inherit; font-size: 11px; }
 .clear-project-filters { justify-self: start; cursor: pointer; color: #d0d7e2; }
 .clear-project-filters:hover { border-color: #4a5567; }
 
@@ -112,15 +86,15 @@
 .epic-card-footer span:last-child { color: #9ba8bb; }
 
 @media (max-width: 900px) {
-  .ticket-composer { grid-template-columns: 1fr 1fr; }
-  .ticket-composer input { grid-column: 1 / -1; }
   .project-view-toolbar { align-items: flex-start; flex-direction: column; }
   .project-filter-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ticket-create-grid.four-up { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 560px) {
-  .ticket-composer { grid-template-columns: 1fr; }
-  .ticket-composer input { grid-column: auto; }
-  .project-filter-bar { grid-template-columns: 1fr; }
+  .project-header { display: grid; }
+  .project-header-actions { justify-content: space-between; }
+  .ticket-create-panel { right: auto; left: 0; width: calc(100vw - 48px); }
+  .ticket-create-grid.four-up, .project-filter-bar { grid-template-columns: 1fr; }
   .epic-card-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
