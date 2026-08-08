@@ -47,6 +47,11 @@ class RepositoryProvider(StrEnum):
     OTHER = "other"
 
 
+class WorkspaceStatus(StrEnum):
+    ACTIVE = "active"
+    REMOVED = "removed"
+
+
 def project_ticket_prefix(name: str) -> str:
     words = re.findall(r"[A-Z]+(?=[A-Z][a-z]|\b)|[A-Z]?[a-z]+|\d+", name)
     if len(words) >= 2:
@@ -81,6 +86,7 @@ class Project(Base):
 
     tickets: Mapped[list[Ticket]] = relationship(back_populates="project", cascade="all, delete-orphan")
     repositories: Mapped[list[Repository]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    workspaces: Mapped[list[Workspace]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
 
 class Repository(Base):
@@ -103,6 +109,7 @@ class Repository(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
     project: Mapped[Project] = relationship(back_populates="repositories")
+    workspaces: Mapped[list[Workspace]] = relationship(back_populates="repository", cascade="all, delete-orphan")
 
 
 class Ticket(Base):
@@ -138,6 +145,7 @@ class Ticket(Base):
     parent: Mapped[Ticket | None] = relationship(remote_side="Ticket.id", back_populates="children")
     children: Mapped[list[Ticket]] = relationship(back_populates="parent")
     events: Mapped[list[TicketEvent]] = relationship(back_populates="ticket", cascade="all, delete-orphan", order_by="TicketEvent.created_at")
+    workspaces: Mapped[list[Workspace]] = relationship(back_populates="ticket")
     dependencies: Mapped[list[Ticket]] = relationship(secondary=ticket_dependencies, primaryjoin=id == ticket_dependencies.c.ticket_id, secondaryjoin=id == ticket_dependencies.c.dependency_id, back_populates="dependents")
     dependents: Mapped[list[Ticket]] = relationship(secondary=ticket_dependencies, primaryjoin=id == ticket_dependencies.c.dependency_id, secondaryjoin=id == ticket_dependencies.c.ticket_id, back_populates="dependencies")
 
@@ -156,6 +164,33 @@ class Ticket(Base):
     @property
     def ready_to_start(self) -> bool:
         return not self.is_blocked and self.status in {TicketStatus.BACKLOG, TicketStatus.BLOCKED, TicketStatus.READY}
+
+
+class Workspace(Base):
+    __tablename__ = "workspaces"
+    __table_args__ = (
+        UniqueConstraint("repository_id", "branch", name="uq_workspace_repository_branch"),
+        UniqueConstraint("path", name="uq_workspace_path"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False)
+    repository_id: Mapped[str] = mapped_column(ForeignKey("repositories.id", ondelete="CASCADE"), index=True, nullable=False)
+    ticket_id: Mapped[str | None] = mapped_column(ForeignKey("tickets.id", ondelete="SET NULL"), index=True, nullable=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    branch: Mapped[str] = mapped_column(String(255), nullable=False)
+    path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    status: Mapped[WorkspaceStatus] = mapped_column(
+        SqlEnum(WorkspaceStatus, native_enum=False, values_callable=lambda enum: [item.value for item in enum]),
+        default=WorkspaceStatus.ACTIVE,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+    project: Mapped[Project] = relationship(back_populates="workspaces")
+    repository: Mapped[Repository] = relationship(back_populates="workspaces")
+    ticket: Mapped[Ticket | None] = relationship(back_populates="workspaces")
 
 
 class TicketEvent(Base):
