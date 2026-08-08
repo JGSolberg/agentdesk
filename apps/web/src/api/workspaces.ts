@@ -13,6 +13,18 @@ export type Workspace = {
   updated_at: string;
 };
 
+export type WorkspaceGitStatus = {
+  branch: string;
+  clean: boolean;
+  staged: number;
+  modified: number;
+  untracked: number;
+  ahead: number | null;
+  behind: number | null;
+  head_sha: string;
+  head_message: string;
+};
+
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -45,6 +57,10 @@ export function createWorkspace(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function getWorkspaceStatus(workspaceId: string): Promise<WorkspaceGitStatus> {
+  return request<WorkspaceGitStatus>(`/workspaces/${workspaceId}/status`);
 }
 
 export function removeWorkspace(workspaceId: string): Promise<Workspace> {

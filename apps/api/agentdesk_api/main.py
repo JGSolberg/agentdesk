@@ -15,6 +15,7 @@ from .schemas import (
     TicketRead,
     TicketUpdate,
     WorkspaceCreate,
+    WorkspaceGitStatus,
     WorkspaceRead,
 )
 from .services import project_service, repository_service, ticket_service, workspace_service
@@ -85,6 +86,11 @@ def list_workspaces(repository_id: str, db: Session = Depends(get_db)) -> list[W
 @app.post("/repositories/{repository_id}/workspaces", response_model=WorkspaceRead, status_code=status.HTTP_201_CREATED)
 def create_workspace(repository_id: str, payload: WorkspaceCreate, db: Session = Depends(get_db)) -> Workspace:
     return workspace_service.create_workspace(db, repository_id, payload)
+
+
+@app.get("/workspaces/{workspace_id}/status", response_model=WorkspaceGitStatus)
+def get_workspace_status(workspace_id: str, db: Session = Depends(get_db)) -> WorkspaceGitStatus:
+    return workspace_service.workspace_status(db, workspace_id)
 
 
 @app.delete("/workspaces/{workspace_id}", response_model=WorkspaceRead)

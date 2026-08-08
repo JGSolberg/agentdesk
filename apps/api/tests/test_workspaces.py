@@ -37,8 +37,9 @@ def test_workspace_repository_must_exist() -> None:
         assert response.status_code == 404
 
 
-def test_ticket_workspace_records_activity(monkeypatch, tmp_path) -> None:
+def test_ticket_workspace_records_activity_and_reactivates(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(workspace_service, "_git", lambda *args, **kwargs: None)
+    monkeypatch.setattr(workspace_service, "_git_output", lambda *args, **kwargs: "")
     monkeypatch.setenv("AGENTDESK_HOME", str(tmp_path / "agentdesk-home"))
 
     with TestClient(app) as client:
@@ -76,6 +77,21 @@ def test_ticket_workspace_records_activity(monkeypatch, tmp_path) -> None:
 
         removed = client.delete(f"/workspaces/{workspace['id']}")
         assert removed.status_code == 200
+        assert removed.json()["status"] == "removed"
+
+        recreated = client.post(
+            f"/repositories/{repository['id']}/workspaces",
+            json={"ticket_id": ticket["id"]},
+        )
+        assert recreated.status_code == 201
+        assert recreated.json()["id"] == workspace["id"]
+        assert recreated.json()["status"] == "active"
+        assert recreated.json()["branch"] == workspace["branch"]
+
+        listed = client.get(f"/repositories/{repository['id']}/workspaces").json()
+        assert len(listed) == 1
+        assert listed[0]["status"] == "active"
 
         events = client.get(f"/tickets/{ticket['id']}/events").json()
         assert any(event["event_type"] == "workspace_removed" and event["payload"]["workspace_id"] == workspace["id"] for event in events)
+        assert any(event["event_type"] == "workspace_reactivated" and event["payload"]["workspace_id"] == workspace["id"] for event in events)

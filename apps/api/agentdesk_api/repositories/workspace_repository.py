@@ -8,6 +8,14 @@ def get(db: Session, workspace_id: str) -> Workspace | None:
     return db.get(Workspace, workspace_id)
 
 
+def get_by_branch(db: Session, repository_id: str, branch: str) -> Workspace | None:
+    query = select(Workspace).where(
+        Workspace.repository_id == repository_id,
+        Workspace.branch == branch,
+    )
+    return db.scalar(query)
+
+
 def list_for_repository(db: Session, repository_id: str, *, active_only: bool = False) -> list[Workspace]:
     query = select(Workspace).where(Workspace.repository_id == repository_id)
     if active_only:

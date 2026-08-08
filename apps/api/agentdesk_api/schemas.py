@@ -76,6 +76,18 @@ class WorkspaceRead(BaseModel):
     updated_at: datetime
 
 
+class WorkspaceGitStatus(BaseModel):
+    branch: str
+    clean: bool
+    staged: int
+    modified: int
+    untracked: int
+    ahead: int | None
+    behind: int | None
+    head_sha: str
+    head_message: str
+
+
 class TicketCreate(BaseModel):
     title: str = Field(min_length=1, max_length=300)
     type: TicketType = TicketType.STORY
