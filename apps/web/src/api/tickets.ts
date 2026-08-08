@@ -69,6 +69,10 @@ export function listTickets(projectId: string): Promise<Ticket[]> {
   return request<Ticket[]>(`/projects/${projectId}/tickets`);
 }
 
+export function getTicket(ticketId: string): Promise<Ticket> {
+  return request<Ticket>(`/tickets/${ticketId}`);
+}
+
 export function createTicket(
   projectId: string,
   payload: { title: string; type: TicketType; priority: TicketPriority; status?: TicketStatus },

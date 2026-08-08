@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useParams } from "react-router-dom";
 
+import TicketDetail from "./TicketDetail";
 import { getProject, listProjects, type Project } from "./api/projects";
 import {
   createTicket,
@@ -77,6 +78,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home projects={projects} loading={loading} error={error} />} />
           <Route path="/projects/:projectId" element={<ProjectBoard />} />
+          <Route path="/tickets/:ticketId" element={<TicketDetail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -211,7 +213,7 @@ function ProjectBoard() {
                 <strong>{items.length}</strong>
                 <div className="attention-items">
                   {items.map((ticket) => (
-                    <span key={ticket.id}>{ticket.ticket_key}</span>
+                    <NavLink key={ticket.id} to={`/tickets/${ticket.id}`}>{ticket.ticket_key}</NavLink>
                   ))}
                 </div>
               </div>
@@ -313,15 +315,17 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
         event.dataTransfer.setData("text/plain", ticket.id);
       }}
     >
-      <div className="ticket-card-meta">
-        <span className="ticket-key">{ticket.ticket_key}</span>
-        <span className={`ticket-type type-${ticket.type}`}>{ticket.type}</span>
-      </div>
-      <h3>{ticket.title}</h3>
-      <div className="ticket-card-footer">
-        <span className={`priority-pill ${ticket.priority}`}>{ticket.priority}</span>
-        {ticket.assignee && <span className="assignee">{ticket.assignee}</span>}
-      </div>
+      <NavLink className="ticket-card-link" to={`/tickets/${ticket.id}`}>
+        <div className="ticket-card-meta">
+          <span className="ticket-key">{ticket.ticket_key}</span>
+          <span className={`ticket-type type-${ticket.type}`}>{ticket.type}</span>
+        </div>
+        <h3>{ticket.title}</h3>
+        <div className="ticket-card-footer">
+          <span className={`priority-pill ${ticket.priority}`}>{ticket.priority}</span>
+          {ticket.assignee && <span className="assignee">{ticket.assignee}</span>}
+        </div>
+      </NavLink>
     </article>
   );
 }
