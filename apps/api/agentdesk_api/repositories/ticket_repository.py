@@ -8,9 +8,11 @@ def get(db: Session, ticket_id: str) -> Ticket | None:
     return db.get(Ticket, ticket_id)
 
 
-def list_for_project(db: Session, project_id: str) -> list[Ticket]:
-    query = select(Ticket).where(Ticket.project_id == project_id).order_by(Ticket.order, Ticket.sequence)
-    return list(db.scalars(query).all())
+def list_for_project(db: Session, project_id: str, *, include_archived: bool = False) -> list[Ticket]:
+    query = select(Ticket).where(Ticket.project_id == project_id)
+    if not include_archived:
+        query = query.where(Ticket.archived.is_(False))
+    return list(db.scalars(query.order_by(Ticket.order, Ticket.sequence)).all())
 
 
 def next_sequence(db: Session, project_id: str) -> int:
@@ -23,3 +25,8 @@ def save(db: Session, ticket: Ticket) -> Ticket:
     db.commit()
     db.refresh(ticket)
     return ticket
+
+
+def delete(db: Session, ticket: Ticket) -> None:
+    db.delete(ticket)
+    db.commit()
