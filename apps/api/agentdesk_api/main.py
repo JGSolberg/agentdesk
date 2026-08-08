@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import Project, Repository, Ticket, TicketEvent
 from .schemas import (
+    GitRepositoryStatusRead,
     ProjectCreate,
     ProjectRead,
     ProjectUpdate,
@@ -15,7 +16,7 @@ from .schemas import (
     TicketRead,
     TicketUpdate,
 )
-from .services import project_service, repository_service, ticket_service
+from .services import git_service, project_service, repository_service, ticket_service
 
 app = FastAPI(title="AgentDesk API", version="0.1.0")
 
@@ -58,6 +59,15 @@ def list_repositories(project_id: str, db: Session = Depends(get_db)) -> list[Re
 @app.get("/repositories/{repository_id}", response_model=RepositoryRead)
 def get_repository(repository_id: str, db: Session = Depends(get_db)) -> Repository:
     return repository_service.require_repository(db, repository_id)
+
+
+@app.get("/repositories/{repository_id}/status", response_model=GitRepositoryStatusRead)
+def get_repository_status(repository_id: str, db: Session = Depends(get_db)) -> GitRepositoryStatusRead:
+    repository = repository_service.require_repository(db, repository_id)
+    return GitRepositoryStatusRead.model_validate(
+        git_service.inspect_repository(repository.local_path),
+        from_attributes=True,
+    )
 
 
 @app.patch("/repositories/{repository_id}", response_model=RepositoryRead)
