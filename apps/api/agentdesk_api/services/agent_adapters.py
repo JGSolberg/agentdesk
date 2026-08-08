@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+from pathlib import Path
 import shutil
 from typing import Protocol
 
@@ -42,6 +43,23 @@ def _agentdesk_environment(run: AgentRun, workspace: Workspace) -> dict[str, str
     }
 
 
+def _workspace_tool_environment(workspace: Workspace) -> dict[str, str]:
+    root = Path(workspace.path)
+    temp = root / ".agentdesk" / "tmp"
+    cache = root / ".agentdesk" / "cache"
+    uv_cache = cache / "uv"
+    pnpm_home = cache / "pnpm"
+    for directory in (temp, uv_cache, pnpm_home):
+        directory.mkdir(parents=True, exist_ok=True)
+    return {
+        "TMP": str(temp),
+        "TEMP": str(temp),
+        "TMPDIR": str(temp),
+        "UV_CACHE_DIR": str(uv_cache),
+        "PNPM_HOME": str(pnpm_home),
+    }
+
+
 class LocalCommandAdapter:
     provider = "local"
 
@@ -68,10 +86,12 @@ class CodexCliAdapter:
         if agent.model:
             command.extend(["--model", agent.model])
         command.append("-")
+        environment = _agentdesk_environment(run, workspace)
+        environment.update(_workspace_tool_environment(workspace))
         return ExecutionPlan(
             command=command,
             shell=False,
-            environment=_agentdesk_environment(run, workspace),
+            environment=environment,
             stdin=_codex_prompt(run.context_snapshot),
         )
 
@@ -143,6 +163,7 @@ Instructions:
 - Inspect the repository and follow project instructions such as AGENTS.md.
 - Make the smallest coherent implementation that satisfies the ticket.
 - Run relevant tests, linters, or builds when practical.
+- Keep temporary files and tool caches inside the current worktree; AgentDesk provides workspace-local TMP/TEMP and UV cache paths.
 - Do not push, merge, or create a pull request.
 - Do not create or switch branches; AgentDesk owns the worktree and branch.
 - Leave all resulting changes in the worktree for human review.
