@@ -163,3 +163,12 @@ class TicketEventRead(BaseModel):
     actor: str
     payload: dict
     created_at: datetime
+
+
+class SearchResult(BaseModel):
+    kind: str
+    id: str
+    label: str
+    subtitle: str
+    href: str
+    archived: bool = False
