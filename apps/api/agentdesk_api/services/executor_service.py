@@ -74,5 +74,8 @@ def execute_local_run(db: Session, run_id: str) -> AgentRun:
         if message:
             agent_service.append_log(db, run.id, AgentRunLogAppend(level=level[:30], message=message))
 
-    final_status = RunStatus.SUCCEEDED if outcome.error is None and completed.returncode == 0 else RunStatus.FAILED
+    if outcome.needs_human:
+        final_status = RunStatus.NEEDS_HUMAN
+    else:
+        final_status = RunStatus.SUCCEEDED if outcome.error is None and completed.returncode == 0 else RunStatus.FAILED
     return agent_service.update_run(db, run.id, AgentRunUpdate(status=final_status, result=outcome.result, error=outcome.error))
