@@ -46,6 +46,23 @@ def test_agent_run_lifecycle_and_context_snapshot() -> None:
         assert any(event["event_type"] == "agent_run_updated" for event in events)
 
 
+def test_agent_run_requires_explicit_override_for_done_ticket() -> None:
+    with TestClient(app) as client:
+        project = client.post("/projects", json={"name": "Run Guard"}).json()
+        ticket = client.post(f"/projects/{project['id']}/tickets", json={"title": "Already shipped", "status": "done"}).json()
+        agent = client.post(f"/projects/{project['id']}/agents", json={"name": "Reviewer", "provider": "manual"}).json()
+
+        blocked = client.post(f"/tickets/{ticket['id']}/runs", json={"agent_id": agent["id"]})
+        assert blocked.status_code == 409
+        assert "not normally actionable" in blocked.json()["detail"]
+
+        allowed = client.post(f"/tickets/{ticket['id']}/runs", json={"agent_id": agent["id"], "allow_non_actionable": True})
+        assert allowed.status_code == 201
+        events = client.get(f"/tickets/{ticket['id']}/events").json()
+        created = [event for event in events if event["event_type"] == "agent_run_created"][-1]
+        assert created["payload"]["non_actionable_override"] is True
+
+
 def test_agent_and_ticket_must_share_project() -> None:
     with TestClient(app) as client:
         project_a = client.post("/projects", json={"name": "Alpha"}).json()
@@ -117,6 +134,10 @@ def test_codex_adapter_builds_sandboxed_json_exec_plan(tmp_path: Path) -> None:
     assert "AD-42 — Provider adapters" in plan.stdin
     assert "Do not push, merge, or create a pull request." in plan.stdin
     assert plan.environment["AGENTDESK_TICKET_KEY"] == "AD-42"
+    assert Path(plan.environment["TMP"]).is_relative_to(tmp_path)
+    assert Path(plan.environment["UV_CACHE_DIR"]).is_relative_to(tmp_path)
+    assert Path(plan.environment["TMP"]).is_dir()
+    assert Path(plan.environment["UV_CACHE_DIR"]).is_dir()
 
 
 def test_codex_adapter_parses_jsonl_telemetry_and_final_message() -> None:
