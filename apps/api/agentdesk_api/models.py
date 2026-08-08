@@ -42,7 +42,6 @@ class TicketPriority(StrEnum):
 
 
 def project_ticket_prefix(name: str) -> str:
-    """Create a compact, deterministic ticket prefix from a project name."""
     words = re.findall(r"[A-Z]+(?=[A-Z][a-z]|\b)|[A-Z]?[a-z]+|\d+", name)
     if len(words) >= 2:
         prefix = "".join(word[0] for word in words[:3])
@@ -72,9 +71,7 @@ class Project(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     archived: Mapped[bool] = mapped_column(default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
-    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
     tickets: Mapped[list[Ticket]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
@@ -91,20 +88,9 @@ class Ticket(Base):
     parent_id: Mapped[str | None] = mapped_column(ForeignKey("tickets.id", ondelete="SET NULL"), index=True)
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     ticket_key: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
-    type: Mapped[TicketType] = mapped_column(
-        SqlEnum(TicketType, native_enum=False, values_callable=lambda enum: [item.value for item in enum]),
-        nullable=False,
-    )
-    status: Mapped[TicketStatus] = mapped_column(
-        SqlEnum(TicketStatus, native_enum=False, values_callable=lambda enum: [item.value for item in enum]),
-        default=TicketStatus.BACKLOG,
-        nullable=False,
-    )
-    priority: Mapped[TicketPriority] = mapped_column(
-        SqlEnum(TicketPriority, native_enum=False, values_callable=lambda enum: [item.value for item in enum]),
-        default=TicketPriority.MEDIUM,
-        nullable=False,
-    )
+    type: Mapped[TicketType] = mapped_column(SqlEnum(TicketType, native_enum=False, values_callable=lambda enum: [item.value for item in enum]), nullable=False)
+    status: Mapped[TicketStatus] = mapped_column(SqlEnum(TicketStatus, native_enum=False, values_callable=lambda enum: [item.value for item in enum]), default=TicketStatus.BACKLOG, nullable=False)
+    priority: Mapped[TicketPriority] = mapped_column(SqlEnum(TicketPriority, native_enum=False, values_callable=lambda enum: [item.value for item in enum]), default=TicketPriority.MEDIUM, nullable=False)
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     goal: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -117,25 +103,14 @@ class Ticket(Base):
     requires_human: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     order: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
-    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
     project: Mapped[Project] = relationship(back_populates="tickets")
     parent: Mapped[Ticket | None] = relationship(remote_side="Ticket.id", back_populates="children")
     children: Mapped[list[Ticket]] = relationship(back_populates="parent")
-    dependencies: Mapped[list[Ticket]] = relationship(
-        secondary=ticket_dependencies,
-        primaryjoin=id == ticket_dependencies.c.ticket_id,
-        secondaryjoin=id == ticket_dependencies.c.dependency_id,
-        back_populates="dependents",
-    )
-    dependents: Mapped[list[Ticket]] = relationship(
-        secondary=ticket_dependencies,
-        primaryjoin=id == ticket_dependencies.c.dependency_id,
-        secondaryjoin=id == ticket_dependencies.c.ticket_id,
-        back_populates="dependencies",
-    )
+    events: Mapped[list[TicketEvent]] = relationship(back_populates="ticket", cascade="all, delete-orphan", order_by="TicketEvent.created_at")
+    dependencies: Mapped[list[Ticket]] = relationship(secondary=ticket_dependencies, primaryjoin=id == ticket_dependencies.c.ticket_id, secondaryjoin=id == ticket_dependencies.c.dependency_id, back_populates="dependents")
+    dependents: Mapped[list[Ticket]] = relationship(secondary=ticket_dependencies, primaryjoin=id == ticket_dependencies.c.dependency_id, secondaryjoin=id == ticket_dependencies.c.ticket_id, back_populates="dependencies")
 
     @property
     def dependency_ids(self) -> list[str]:
@@ -151,8 +126,17 @@ class Ticket(Base):
 
     @property
     def ready_to_start(self) -> bool:
-        return not self.is_blocked and self.status in {
-            TicketStatus.BACKLOG,
-            TicketStatus.BLOCKED,
-            TicketStatus.READY,
-        }
+        return not self.is_blocked and self.status in {TicketStatus.BACKLOG, TicketStatus.BLOCKED, TicketStatus.READY}
+
+
+class TicketEvent(Base):
+    __tablename__ = "ticket_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    ticket_id: Mapped[str] = mapped_column(ForeignKey("tickets.id", ondelete="CASCADE"), index=True, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    actor: Mapped[str] = mapped_column(String(120), default="user", nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+
+    ticket: Mapped[Ticket] = relationship(back_populates="events")
