@@ -6,6 +6,7 @@ import App from "./App";
 import "./styles.css";
 import "./board.css";
 import "./ticket-detail.css";
+import "./repositories.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

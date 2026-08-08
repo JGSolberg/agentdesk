@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useParams } from "react-router-dom";
 
+import RepositoryPage from "./RepositoryPage";
 import TicketDetail from "./TicketDetail";
 import { getProject, listProjects, type Project } from "./api/projects";
 import {
@@ -56,19 +57,25 @@ function App() {
           <div className="sidebar-heading">Projects</div>
           {loading && <div className="sidebar-muted">Loading…</div>}
           {error && <div className="sidebar-error">API unavailable</div>}
-          {!loading && !error && projects.length === 0 && (
-            <div className="sidebar-muted">No projects yet</div>
-          )}
+          {!loading && !error && projects.length === 0 && <div className="sidebar-muted">No projects yet</div>}
           <nav className="project-nav">
             {projects.map((project) => (
-              <NavLink
-                key={project.id}
-                to={`/projects/${project.id}`}
-                className={({ isActive }) => `project-link${isActive ? " active" : ""}`}
-              >
-                <span className="project-dot" />
-                {project.name}
-              </NavLink>
+              <div className="project-nav-group" key={project.id}>
+                <NavLink
+                  to={`/projects/${project.id}`}
+                  end
+                  className={({ isActive }) => `project-link${isActive ? " active" : ""}`}
+                >
+                  <span className="project-dot" />
+                  {project.name}
+                </NavLink>
+                <NavLink
+                  to={`/projects/${project.id}/repositories`}
+                  className={({ isActive }) => `project-sub-link${isActive ? " active" : ""}`}
+                >
+                  Repositories
+                </NavLink>
+              </div>
             ))}
           </nav>
         </div>
@@ -78,6 +85,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home projects={projects} loading={loading} error={error} />} />
           <Route path="/projects/:projectId" element={<ProjectBoard />} />
+          <Route path="/projects/:projectId/repositories" element={<RepositoryPage />} />
           <Route path="/tickets/:ticketId" element={<TicketDetail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -241,9 +249,7 @@ function ProjectBoard() {
                 <span className="column-count">{columnTickets.length}</span>
               </header>
               <div className="kanban-stack">
-                {columnTickets.map((ticket) => (
-                  <TicketCard key={ticket.id} ticket={ticket} />
-                ))}
+                {columnTickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} />)}
                 {columnTickets.length === 0 && <div className="column-empty">Drop tickets here</div>}
               </div>
             </section>
@@ -275,32 +281,14 @@ function TicketComposer({
 
   return (
     <form className="ticket-composer" onSubmit={submit}>
-      <input
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-        placeholder="Create a ticket…"
-        aria-label="Ticket title"
-      />
+      <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Create a ticket…" aria-label="Ticket title" />
       <select value={type} onChange={(event) => setType(event.target.value as TicketType)} aria-label="Ticket type">
-        <option value="story">Story</option>
-        <option value="task">Task</option>
-        <option value="bug">Bug</option>
-        <option value="spike">Spike</option>
-        <option value="epic">Epic</option>
+        <option value="story">Story</option><option value="task">Task</option><option value="bug">Bug</option><option value="spike">Spike</option><option value="epic">Epic</option>
       </select>
-      <select
-        value={priority}
-        onChange={(event) => setPriority(event.target.value as TicketPriority)}
-        aria-label="Ticket priority"
-      >
-        <option value="low">Low</option>
-        <option value="medium">Medium</option>
-        <option value="high">High</option>
-        <option value="critical">Critical</option>
+      <select value={priority} onChange={(event) => setPriority(event.target.value as TicketPriority)} aria-label="Ticket priority">
+        <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option>
       </select>
-      <button type="submit" disabled={busy || !title.trim()}>
-        {busy ? "Creating…" : "Create"}
-      </button>
+      <button type="submit" disabled={busy || !title.trim()}>{busy ? "Creating…" : "Create"}</button>
     </form>
   );
 }
@@ -316,15 +304,9 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
       }}
     >
       <NavLink className="ticket-card-link" to={`/tickets/${ticket.id}`}>
-        <div className="ticket-card-meta">
-          <span className="ticket-key">{ticket.ticket_key}</span>
-          <span className={`ticket-type type-${ticket.type}`}>{ticket.type}</span>
-        </div>
+        <div className="ticket-card-meta"><span className="ticket-key">{ticket.ticket_key}</span><span className={`ticket-type type-${ticket.type}`}>{ticket.type}</span></div>
         <h3>{ticket.title}</h3>
-        <div className="ticket-card-footer">
-          <span className={`priority-pill ${ticket.priority}`}>{ticket.priority}</span>
-          {ticket.assignee && <span className="assignee">{ticket.assignee}</span>}
-        </div>
+        <div className="ticket-card-footer"><span className={`priority-pill ${ticket.priority}`}>{ticket.priority}</span>{ticket.assignee && <span className="assignee">{ticket.assignee}</span>}</div>
       </NavLink>
     </article>
   );
