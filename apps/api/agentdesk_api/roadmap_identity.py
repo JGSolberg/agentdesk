@@ -29,13 +29,11 @@ def repair_roadmap_identity(db: Session) -> int:
     ticket_by_title = {ticket.title: ticket for ticket in tickets}
 
     assignments: list[tuple[Ticket, int]] = []
-    roadmap_stories: list[tuple[Ticket, str]] = []
     for item in ROADMAP:
         ticket = _roadmap_story(ticket_by_title, item.code, item.title)
         if ticket is None:
             raise RuntimeError(f"Canonical roadmap story missing: {item.code} {item.title}")
         assignments.append((ticket, int(item.code.split("-", 1)[1])))
-        roadmap_stories.append((ticket, item.title))
 
     first_epic_sequence = len(ROADMAP) + 1
     for offset, (milestone, name) in enumerate(MILESTONE_NAMES.items()):
@@ -72,12 +70,7 @@ def repair_roadmap_identity(db: Session) -> int:
         for ticket, sequence in assignments:
             ticket.sequence = sequence
             ticket.ticket_key = f"AD-{sequence}"
-
-    # The human-facing key now carries the AD-* identity, so keep story titles clean.
-    for ticket, canonical_title in roadmap_stories:
-        ticket.title = canonical_title
-
-    db.commit()
+        db.commit()
 
     # Refresh the repository/workspace roadmap content to match the managed-clone
     # architecture that replaced user-supplied local repository paths.
