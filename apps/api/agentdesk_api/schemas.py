@@ -104,6 +104,7 @@ class WorkspaceReview(BaseModel):
     diff: str
     pull_request_url: str | None = None
     pull_request_number: int | None = None
+    pull_request_merged: bool = False
 
 
 class WorkspacePublishResult(BaseModel):
