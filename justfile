@@ -30,9 +30,9 @@ api:
 web:
     pnpm --dir apps/web dev
 
-# Start API and web in separate PowerShell windows
-dev:
-    $root = (Get-Location).Path; Start-Process powershell.exe -ArgumentList '-NoExit','-NoLogo','-Command',("$Host.UI.RawUI.WindowTitle = ''AgentDesk API''; Set-Location -LiteralPath ''{0}''; just api" -f $root); Start-Process powershell.exe -ArgumentList '-NoExit','-NoLogo','-Command',("$Host.UI.RawUI.WindowTitle = ''AgentDesk Web''; Set-Location -LiteralPath ''{0}''; just web" -f $root)
+# Start API and web in separate terminals
+run:
+    cmd /c run.cmd
 
 # Build the web app
 web-build:
