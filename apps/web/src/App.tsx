@@ -1,7 +1,30 @@
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useParams } from "react-router-dom";
 
 import { getProject, listProjects, type Project } from "./api/projects";
+import {
+  createTicket,
+  listTickets,
+  updateTicket,
+  type Ticket,
+  type TicketPriority,
+  type TicketStatus,
+  type TicketType,
+} from "./api/tickets";
+
+const FLOW_COLUMNS: Array<{ status: TicketStatus; label: string }> = [
+  { status: "backlog", label: "Backlog" },
+  { status: "ready", label: "Ready" },
+  { status: "in_progress", label: "In Progress" },
+  { status: "review", label: "Review" },
+  { status: "done", label: "Done" },
+];
+
+const ATTENTION_STATUSES: Array<{ status: TicketStatus; label: string }> = [
+  { status: "blocked", label: "Blocked" },
+  { status: "needs_human", label: "Needs Human" },
+  { status: "agent_failed", label: "Agent Failed" },
+];
 
 function App() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -53,7 +76,7 @@ function App() {
       <main className="main-panel">
         <Routes>
           <Route path="/" element={<Home projects={projects} loading={loading} error={error} />} />
-          <Route path="/projects/:projectId" element={<ProjectOverview />} />
+          <Route path="/projects/:projectId" element={<ProjectBoard />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -61,15 +84,7 @@ function App() {
   );
 }
 
-function Home({
-  projects,
-  loading,
-  error,
-}: {
-  projects: Project[];
-  loading: boolean;
-  error: string | null;
-}) {
+function Home({ projects, loading, error }: { projects: Project[]; loading: boolean; error: string | null }) {
   return (
     <section className="page">
       <header className="page-header">
@@ -100,51 +115,73 @@ function Home({
               <span className="card-action">Open project →</span>
             </NavLink>
           ))}
-          {projects.length === 0 && (
-            <div className="empty-state">
-              <strong>No projects yet</strong>
-              <span>Create one through the API for now; project creation UI comes with the board work.</span>
-            </div>
-          )}
         </div>
       )}
     </section>
   );
 }
 
-function ProjectOverview() {
+function ProjectBoard() {
   const { projectId } = useParams();
   const [project, setProject] = useState<Project | null>(null);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!projectId) return;
-    setProject(null);
+    setLoading(true);
     setError(null);
-    getProject(projectId)
-      .then(setProject)
-      .catch((cause: unknown) => {
-        setError(cause instanceof Error ? cause.message : "Unable to load project");
-      });
+    Promise.all([getProject(projectId), listTickets(projectId)])
+      .then(([nextProject, nextTickets]) => {
+        setProject(nextProject);
+        setTickets(nextTickets);
+      })
+      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to load project"))
+      .finally(() => setLoading(false));
   }, [projectId]);
 
-  if (error) {
-    return (
-      <section className="page">
-        <div className="notice error-notice">
-          <strong>Unable to load project.</strong>
-          <span>{error}</span>
-        </div>
-      </section>
-    );
+  const attentionTickets = useMemo(
+    () => tickets.filter((ticket) => ATTENTION_STATUSES.some(({ status }) => status === ticket.status)),
+    [tickets],
+  );
+
+  async function moveTicket(ticketId: string, status: TicketStatus) {
+    const current = tickets.find((ticket) => ticket.id === ticketId);
+    if (!current || current.status === status) return;
+
+    const snapshot = tickets;
+    setTickets((items) => items.map((ticket) => (ticket.id === ticketId ? { ...ticket, status } : ticket)));
+    try {
+      const updated = await updateTicket(ticketId, { status });
+      setTickets((items) => items.map((ticket) => (ticket.id === ticketId ? updated : ticket)));
+      setError(null);
+    } catch (cause) {
+      setTickets(snapshot);
+      setError(cause instanceof Error ? cause.message : "Unable to move ticket");
+    }
   }
 
-  if (!project) {
-    return <section className="page loading-page">Loading project…</section>;
+  async function addTicket(payload: { title: string; type: TicketType; priority: TicketPriority }) {
+    if (!projectId) return;
+    setCreating(true);
+    try {
+      const ticket = await createTicket(projectId, payload);
+      setTickets((items) => [...items, ticket]);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create ticket");
+    } finally {
+      setCreating(false);
+    }
   }
+
+  if (loading) return <section className="page loading-page">Loading project…</section>;
+  if (!project) return <section className="page loading-page">Project unavailable.</section>;
 
   return (
-    <section className="page">
+    <section className="page board-page">
       <header className="page-header project-header">
         <div>
           <div className="eyebrow">Project</div>
@@ -154,29 +191,138 @@ function ProjectOverview() {
         <div className="status-chip">{project.archived ? "Archived" : "Active"}</div>
       </header>
 
-      <div className="overview-grid">
-        <article className="panel">
-          <span className="panel-label">Status</span>
-          <strong>{project.archived ? "Archived" : "Active"}</strong>
-        </article>
-        <article className="panel">
-          <span className="panel-label">Created</span>
-          <strong>{new Date(project.created_at).toLocaleDateString()}</strong>
-        </article>
-        <article className="panel">
-          <span className="panel-label">Last updated</span>
-          <strong>{new Date(project.updated_at).toLocaleDateString()}</strong>
-        </article>
-      </div>
+      <TicketComposer onCreate={addTicket} busy={creating} />
 
-      <div className="workspace-placeholder">
-        <div>
-          <div className="eyebrow">Next</div>
-          <h2>Ticket board</h2>
-          <p>AD-6 will turn this project workspace into the Kanban board.</p>
+      {error && (
+        <div className="notice error-notice board-error">
+          <strong>Board action failed.</strong>
+          <span>{error}</span>
         </div>
+      )}
+
+      {attentionTickets.length > 0 && (
+        <div className="attention-strip">
+          {ATTENTION_STATUSES.map(({ status, label }) => {
+            const items = attentionTickets.filter((ticket) => ticket.status === status);
+            if (!items.length) return null;
+            return (
+              <div key={status} className={`attention-group ${status}`}>
+                <span>{label}</span>
+                <strong>{items.length}</strong>
+                <div className="attention-items">
+                  {items.map((ticket) => (
+                    <span key={ticket.id}>{ticket.ticket_key}</span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="kanban-board">
+        {FLOW_COLUMNS.map(({ status, label }) => {
+          const columnTickets = tickets.filter((ticket) => ticket.status === status);
+          return (
+            <section
+              className="kanban-column"
+              key={status}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                const ticketId = event.dataTransfer.getData("text/plain");
+                if (ticketId) void moveTicket(ticketId, status);
+              }}
+            >
+              <header className="kanban-column-header">
+                <span>{label}</span>
+                <span className="column-count">{columnTickets.length}</span>
+              </header>
+              <div className="kanban-stack">
+                {columnTickets.map((ticket) => (
+                  <TicketCard key={ticket.id} ticket={ticket} />
+                ))}
+                {columnTickets.length === 0 && <div className="column-empty">Drop tickets here</div>}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </section>
+  );
+}
+
+function TicketComposer({
+  onCreate,
+  busy,
+}: {
+  onCreate: (payload: { title: string; type: TicketType; priority: TicketPriority }) => Promise<void>;
+  busy: boolean;
+}) {
+  const [title, setTitle] = useState("");
+  const [type, setType] = useState<TicketType>("story");
+  const [priority, setPriority] = useState<TicketPriority>("medium");
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const cleanTitle = title.trim();
+    if (!cleanTitle) return;
+    await onCreate({ title: cleanTitle, type, priority });
+    setTitle("");
+  }
+
+  return (
+    <form className="ticket-composer" onSubmit={submit}>
+      <input
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+        placeholder="Create a ticket…"
+        aria-label="Ticket title"
+      />
+      <select value={type} onChange={(event) => setType(event.target.value as TicketType)} aria-label="Ticket type">
+        <option value="story">Story</option>
+        <option value="task">Task</option>
+        <option value="bug">Bug</option>
+        <option value="spike">Spike</option>
+        <option value="epic">Epic</option>
+      </select>
+      <select
+        value={priority}
+        onChange={(event) => setPriority(event.target.value as TicketPriority)}
+        aria-label="Ticket priority"
+      >
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+        <option value="critical">Critical</option>
+      </select>
+      <button type="submit" disabled={busy || !title.trim()}>
+        {busy ? "Creating…" : "Create"}
+      </button>
+    </form>
+  );
+}
+
+function TicketCard({ ticket }: { ticket: Ticket }) {
+  return (
+    <article
+      className={`ticket-card priority-${ticket.priority}`}
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", ticket.id);
+      }}
+    >
+      <div className="ticket-card-meta">
+        <span className="ticket-key">{ticket.ticket_key}</span>
+        <span className={`ticket-type type-${ticket.type}`}>{ticket.type}</span>
+      </div>
+      <h3>{ticket.title}</h3>
+      <div className="ticket-card-footer">
+        <span className={`priority-pill ${ticket.priority}`}>{ticket.priority}</span>
+        {ticket.assignee && <span className="assignee">{ticket.assignee}</span>}
+      </div>
+    </article>
   );
 }
 
