@@ -1,6 +1,6 @@
 .ticket-lifecycle-wrap {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  justify-content: flex-end;
   margin: -10px 0 22px;
 }
 
@@ -19,41 +19,50 @@
   cursor: pointer;
 }
 
-.ticket-lifecycle-actions button:hover:not(:disabled) {
-  border-color: #596477;
-}
-
-.ticket-lifecycle-actions .danger-button {
-  border-color: #573434;
-  color: #ff9a9a;
-}
-
-.ticket-lifecycle-actions button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
+.ticket-lifecycle-actions button:hover:not(:disabled) { border-color: #596477; }
+.ticket-lifecycle-actions .danger-button { border-color: #573434; color: #ff9a9a; }
+.ticket-lifecycle-actions button:disabled { opacity: 0.5; cursor: default; }
 .ticket-lifecycle-note,
-.ticket-lifecycle-error {
-  text-align: right;
-  font-size: 11px;
-}
-
+.ticket-lifecycle-error { text-align: right; font-size: 11px; }
 .ticket-lifecycle-note { color: #7f8998; }
 .ticket-lifecycle-error { color: #ff9a9a; }
+.status-cancelled { border-color: #55505f; color: #b9b0c8; }
 
-.status-cancelled {
-  border-color: #55505f;
-  color: #b9b0c8;
+.relationship-panel {
+  width: 100%;
+  gap: 14px;
 }
+.relationship-group { display: grid; gap: 7px; }
+.relationship-group > label { color: #727d8d; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.relationship-panel select {
+  width: 100%;
+  border: 1px solid #303746;
+  border-radius: 7px;
+  background: #0d1117;
+  color: #d9e0ea;
+  padding: 8px 9px;
+}
+.relationship-link { display: grid; gap: 2px; min-width: 0; color: #dbe2ec; }
+.relationship-link:hover strong { text-decoration: underline; }
+.relationship-link strong { font-size: 12px; }
+.relationship-link small { overflow: hidden; color: #7f8a9b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.relationship-link.compact { padding: 4px 0; }
+.relationship-list { display: grid; gap: 6px; }
+.relationship-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid #272e39; border-radius: 7px; background: #0d1117; }
+.relationship-item button,
+.relationship-add button { border: 1px solid #303746; border-radius: 6px; background: #171c24; color: #cdd5e1; cursor: pointer; }
+.relationship-item button { width: 28px; height: 28px; color: #ff9a9a; }
+.relationship-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+.relationship-add button { padding: 7px 11px; }
+.relationship-add button:disabled,
+.relationship-item button:disabled { opacity: .5; cursor: default; }
+.relationship-empty { color: #7f8998; font-size: 12px; font-weight: 500 !important; }
+.relationship-error { color: #ff9a9a; font-size: 11px; }
 
 @media (max-width: 760px) {
-  .ticket-lifecycle-actions {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
+  .ticket-lifecycle-wrap { justify-content: flex-start; }
+  .ticket-lifecycle-actions { justify-content: flex-start; flex-wrap: wrap; }
   .ticket-lifecycle-note,
-  .ticket-lifecycle-error {
-    text-align: left;
-  }
+  .ticket-lifecycle-error { text-align: left; }
+  .relationship-add { grid-template-columns: 1fr; }
 }
