@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 
 from ..agent_models import AgentRun, RunStatus
 from ..agent_schemas import AgentRunLogAppend, AgentRunUpdate
-from ..models import Workspace, WorkspaceStatus
-from . import agent_service
+from ..models import TicketStatus, Workspace, WorkspaceStatus
+from ..schemas import TicketUpdate
+from . import agent_service, review_service, ticket_service
 from .agent_adapters import get_adapter
 
 
@@ -34,6 +35,16 @@ def execute_local_run(db: Session, run_id: str) -> AgentRun:
         plan = adapter.build_plan(agent, run, workspace)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    ticket = ticket_service.require_ticket(db, run.ticket_id)
+    if ticket.status in {
+        TicketStatus.BACKLOG,
+        TicketStatus.READY,
+        TicketStatus.REVIEW,
+        TicketStatus.NEEDS_HUMAN,
+        TicketStatus.AGENT_FAILED,
+    }:
+        ticket_service.update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.IN_PROGRESS))
 
     agent_service.update_run(db, run.id, AgentRunUpdate(status=RunStatus.RUNNING, error=None))
     agent_service.append_log(db, run.id, AgentRunLogAppend(level="info", message=f"Executing {agent.name} ({agent.provider}) in {workspace.path}"))
@@ -76,6 +87,12 @@ def execute_local_run(db: Session, run_id: str) -> AgentRun:
 
     if outcome.needs_human:
         final_status = RunStatus.NEEDS_HUMAN
+        ticket_service.update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.NEEDS_HUMAN))
     else:
         final_status = RunStatus.SUCCEEDED if outcome.error is None and completed.returncode == 0 else RunStatus.FAILED
+        if final_status == RunStatus.SUCCEEDED and review_service.has_reviewable_changes(db, workspace.id):
+            ticket_service.update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.REVIEW))
+        elif final_status == RunStatus.FAILED:
+            ticket_service.update_ticket(db, ticket.id, TicketUpdate(status=TicketStatus.AGENT_FAILED))
+
     return agent_service.update_run(db, run.id, AgentRunUpdate(status=final_status, result=outcome.result, error=outcome.error))
