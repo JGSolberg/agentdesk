@@ -62,6 +62,11 @@ class WorkspaceCreate(BaseModel):
     branch: str | None = Field(default=None, max_length=255)
 
 
+class WorkspaceAdoptPr(BaseModel):
+    ticket_id: str
+    pull_request: str = Field(min_length=1, max_length=1000)
+
+
 class WorkspaceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
