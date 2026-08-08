@@ -17,206 +17,48 @@
   color: #d8dee8;
 }
 
-.repository-page {
-  max-width: 1200px;
-}
+.repository-page { max-width: 1200px; }
+.repository-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.repository-list, .repository-form { display: grid; gap: 14px; }
+.repository-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.repository-section-heading h2, .repository-section-heading h4 { margin: 0; font-size: 16px; }
+.repository-section-heading > span { color: #707b8d; font-size: 12px; }
+.repository-card, .repository-form, .repository-empty { border: 1px solid #232833; border-radius: 10px; background: #11151c; }
+.repository-card { padding: 18px; }
+.repository-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.repository-title-row { display: flex; align-items: center; gap: 9px; }
+.repository-card h3 { margin: 0 0 6px; font-size: 16px; }
+.repository-card code { color: #909bad; font-size: 12px; }
+.repository-primary { padding: 3px 7px; border: 1px solid #384d7a; border-radius: 999px; color: #9bb7ff; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.repository-actions, .repository-form-actions { display: flex; gap: 8px; }
+.repository-actions button, .repository-form-actions button, .workspace-panel button { border: 1px solid #303746; border-radius: 7px; background: #171c24; color: #c7cfdb; padding: 7px 10px; cursor: pointer; }
+.repository-actions button:hover, .repository-form-actions button:hover, .workspace-panel button:hover { border-color: #4b5669; }
+.repository-actions .danger-button { color: #ff9a9a; }
+.repository-form-actions .primary-button { background: #252e65; border-color: #3f4b93; color: #eef1ff; }
+.repository-form-actions button:disabled, .workspace-panel button:disabled { opacity: 0.5; cursor: default; }
+.repository-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0 0; }
+.repository-meta div { display: grid; gap: 4px; }
+.repository-meta dt { color: #6f7a8b; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.repository-meta dd { margin: 0; overflow: hidden; color: #c7cfdb; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.repository-empty { padding: 30px; color: #717c8d; text-align: center; }
+.repository-form { padding: 18px; }
+.repository-form label { display: grid; gap: 6px; color: #8d98aa; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+.repository-form input, .repository-form select, .workspace-create-row input, .workspace-create-row select { width: 100%; box-sizing: border-box; border: 1px solid #2b3240; border-radius: 7px; background: #0d1117; color: #dbe2ec; padding: 9px 10px; font: inherit; }
+.repository-checkbox { display: flex !important; grid-template-columns: none; align-items: center; gap: 8px !important; color: #b5bfcd !important; font-weight: 500 !important; letter-spacing: 0 !important; }
+.repository-checkbox input { width: auto; }
+.repository-form-actions { justify-content: flex-end; margin-top: 4px; }
 
-.repository-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 20px;
-  align-items: start;
-}
-
-.repository-list,
-.repository-form {
-  display: grid;
-  gap: 14px;
-}
-
-.repository-section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.repository-section-heading h2 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.repository-section-heading > span {
-  color: #707b8d;
-  font-size: 12px;
-}
-
-.repository-card,
-.repository-form,
-.repository-empty {
-  border: 1px solid #232833;
-  border-radius: 10px;
-  background: #11151c;
-}
-
-.repository-card {
-  padding: 18px;
-}
-
-.repository-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.repository-title-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.repository-card h3 {
-  margin: 0 0 6px;
-  font-size: 16px;
-}
-
-.repository-card code {
-  color: #909bad;
-  font-size: 12px;
-}
-
-.repository-primary {
-  padding: 3px 7px;
-  border: 1px solid #384d7a;
-  border-radius: 999px;
-  color: #9bb7ff;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.repository-actions,
-.repository-form-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.repository-actions button,
-.repository-form-actions button {
-  border: 1px solid #303746;
-  border-radius: 7px;
-  background: #171c24;
-  color: #c7cfdb;
-  padding: 7px 10px;
-  cursor: pointer;
-}
-
-.repository-actions button:hover,
-.repository-form-actions button:hover {
-  border-color: #4b5669;
-}
-
-.repository-actions .danger-button {
-  color: #ff9a9a;
-}
-
-.repository-form-actions .primary-button {
-  background: #252e65;
-  border-color: #3f4b93;
-  color: #eef1ff;
-}
-
-.repository-form-actions button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.repository-meta {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 18px 0 0;
-}
-
-.repository-meta div {
-  display: grid;
-  gap: 4px;
-}
-
-.repository-meta dt {
-  color: #6f7a8b;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.repository-meta dd {
-  margin: 0;
-  overflow: hidden;
-  color: #c7cfdb;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.repository-empty {
-  padding: 30px;
-  color: #717c8d;
-  text-align: center;
-}
-
-.repository-form {
-  padding: 18px;
-}
-
-.repository-form label {
-  display: grid;
-  gap: 6px;
-  color: #8d98aa;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.repository-form input,
-.repository-form select {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid #2b3240;
-  border-radius: 7px;
-  background: #0d1117;
-  color: #dbe2ec;
-  padding: 9px 10px;
-  font: inherit;
-}
-
-.repository-checkbox {
-  display: flex !important;
-  grid-template-columns: none;
-  align-items: center;
-  gap: 8px !important;
-  color: #b5bfcd !important;
-  font-weight: 500 !important;
-  letter-spacing: 0 !important;
-}
-
-.repository-checkbox input {
-  width: auto;
-}
-
-.repository-form-actions {
-  justify-content: flex-end;
-  margin-top: 4px;
-}
+.workspace-panel { margin-top: 18px; padding-top: 16px; border-top: 1px solid #232833; }
+.workspace-create-row { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto; gap: 8px; margin-top: 12px; }
+.workspace-list { display: grid; gap: 8px; margin-top: 12px; }
+.workspace-list .repository-empty { padding: 16px; }
+.workspace-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid #232833; border-radius: 8px; background: #0d1117; }
+.workspace-row > div { display: grid; gap: 3px; min-width: 0; }
+.workspace-row strong { color: #dbe2ec; font-size: 13px; }
+.workspace-row span { overflow: hidden; color: #6f7a8b; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 
 @media (max-width: 900px) {
-  .repository-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .repository-meta {
-    grid-template-columns: 1fr;
-  }
+  .repository-layout { grid-template-columns: 1fr; }
+  .repository-meta { grid-template-columns: 1fr; }
+  .workspace-create-row { grid-template-columns: 1fr; }
 }

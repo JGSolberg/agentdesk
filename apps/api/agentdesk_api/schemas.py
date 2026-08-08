@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .models import RepositoryProvider, TicketPriority, TicketStatus, TicketType
+from .models import RepositoryProvider, TicketPriority, TicketStatus, TicketType, WorkspaceStatus
 
 
 class ProjectCreate(BaseModel):
@@ -18,7 +18,6 @@ class ProjectUpdate(BaseModel):
 
 class ProjectRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
     id: str
     name: str
     description: str | None
@@ -45,7 +44,6 @@ class RepositoryUpdate(BaseModel):
 
 class RepositoryRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
     id: str
     project_id: str
     name: str
@@ -54,6 +52,26 @@ class RepositoryRead(BaseModel):
     default_branch: str
     managed_path: str | None
     is_primary: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkspaceCreate(BaseModel):
+    ticket_id: str | None = None
+    name: str | None = Field(default=None, max_length=200)
+    branch: str | None = Field(default=None, max_length=255)
+
+
+class WorkspaceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    project_id: str
+    repository_id: str
+    ticket_id: str | None
+    name: str
+    branch: str
+    path: str
+    status: WorkspaceStatus
     created_at: datetime
     updated_at: datetime
 
@@ -96,7 +114,6 @@ class TicketUpdate(BaseModel):
 
 class TicketRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
     id: str
     project_id: str
     parent_id: str | None
@@ -126,7 +143,6 @@ class TicketRead(BaseModel):
 
 class TicketEventRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
     id: str
     ticket_id: str
     event_type: str

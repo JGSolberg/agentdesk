@@ -2,7 +2,7 @@ from fastapi import Depends, FastAPI, Response, status
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from .models import Project, Repository, Ticket, TicketEvent
+from .models import Project, Repository, Ticket, TicketEvent, Workspace
 from .schemas import (
     ProjectCreate,
     ProjectRead,
@@ -14,8 +14,10 @@ from .schemas import (
     TicketEventRead,
     TicketRead,
     TicketUpdate,
+    WorkspaceCreate,
+    WorkspaceRead,
 )
-from .services import project_service, repository_service, ticket_service
+from .services import project_service, repository_service, ticket_service, workspace_service
 
 app = FastAPI(title="AgentDesk API", version="0.1.0")
 
@@ -73,6 +75,21 @@ def clone_repository(repository_id: str, db: Session = Depends(get_db)) -> Repos
 @app.delete("/repositories/{repository_id}/clone", response_model=RepositoryRead)
 def remove_repository_clone(repository_id: str, db: Session = Depends(get_db)) -> Repository:
     return repository_service.remove_managed_clone(db, repository_id)
+
+
+@app.get("/repositories/{repository_id}/workspaces", response_model=list[WorkspaceRead])
+def list_workspaces(repository_id: str, db: Session = Depends(get_db)) -> list[Workspace]:
+    return workspace_service.list_workspaces(db, repository_id)
+
+
+@app.post("/repositories/{repository_id}/workspaces", response_model=WorkspaceRead, status_code=status.HTTP_201_CREATED)
+def create_workspace(repository_id: str, payload: WorkspaceCreate, db: Session = Depends(get_db)) -> Workspace:
+    return workspace_service.create_workspace(db, repository_id, payload)
+
+
+@app.delete("/workspaces/{workspace_id}", response_model=WorkspaceRead)
+def remove_workspace(workspace_id: str, db: Session = Depends(get_db)) -> Workspace:
+    return workspace_service.remove_workspace(db, workspace_id)
 
 
 @app.delete("/repositories/{repository_id}", status_code=status.HTTP_204_NO_CONTENT)
