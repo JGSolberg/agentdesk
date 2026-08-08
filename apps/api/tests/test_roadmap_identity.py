@@ -23,6 +23,8 @@ def test_roadmap_identity_repair_assigns_human_keys_idempotently() -> None:
         milestone_ten = next(ticket for ticket in tickets if ticket.title == "Milestone 10 — Chief of Staff console")
         assert milestone_ten.ticket_key == f"AD-{len(ROADMAP) + len(MILESTONE_NAMES)}"
 
+        # Bootstrap continues to recognize its historical seeded title shape, so reruns
+        # do not create duplicate stories after the key repair.
         _, created_again = bootstrap(db)
         assert created_again == 0
         assert repair_roadmap_identity(db) == 0
