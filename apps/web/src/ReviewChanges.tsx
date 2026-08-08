@@ -49,6 +49,9 @@ export default function ReviewChanges({ ticketId, ticketStatus, workspace }: { t
 
   if (!review && !error) return <div className="review-changes"><h3>Review changes</h3><p className="detail-empty">Loading worktree diff…</p></div>;
 
+  const prUrl = published?.pull_request_url ?? review?.pull_request_url ?? null;
+  const prNumber = published?.pull_request_number ?? review?.pull_request_number ?? null;
+
   return <div className="review-changes">
     <div className="review-heading">
       <div>
@@ -58,10 +61,10 @@ export default function ReviewChanges({ ticketId, ticketStatus, workspace }: { t
       {review && !review.clean && <span className="review-summary">{review.files.length} file{review.files.length === 1 ? "" : "s"} · +{review.additions} / -{review.deletions}</span>}
     </div>
 
-    {published && <div className="review-pr-ready"><strong>{published.created ? "Pull request created" : "Pull request already exists"}</strong><a href={published.pull_request_url} target="_blank" rel="noreferrer">Open PR{published.pull_request_number ? ` #${published.pull_request_number}` : ""} in GitHub ↗</a></div>}
+    {prUrl && <div className="review-pr-ready"><strong>{published?.created ? "Pull request created" : "Pull request ready for review"}</strong><a href={prUrl} target="_blank" rel="noreferrer">Open PR{prNumber ? ` #${prNumber}` : ""} in GitHub ↗</a></div>}
     {error && <p className="ticket-lifecycle-error">{error}</p>}
 
-    {review?.clean && !published && <p className="detail-empty">No uncommitted reviewable changes in this workspace.</p>}
+    {review?.clean && !prUrl && <p className="detail-empty">No uncommitted reviewable changes in this workspace.</p>}
 
     {review && !review.clean && <>
       <div className="review-file-list">{review.files.map((file) => <div key={`${file.status}-${file.path}`}><code>{file.status}</code><span>{file.path}</span></div>)}</div>
@@ -71,7 +74,7 @@ export default function ReviewChanges({ ticketId, ticketStatus, workspace }: { t
       </details>
       <div className="review-actions">
         <button type="button" disabled={busy} onClick={() => void requestChanges()}>Request changes</button>
-        <button className="primary" type="button" disabled={busy} onClick={() => void createPullRequest()}>{busy ? "Working…" : "Create PR"}</button>
+        {!prUrl && <button className="primary" type="button" disabled={busy} onClick={() => void createPullRequest()}>{busy ? "Working…" : "Create PR"}</button>}
       </div>
     </>}
   </div>;
