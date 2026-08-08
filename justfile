@@ -46,6 +46,7 @@ migrate:
 bootstrap: migrate
     uv run python -m agentdesk_api.bootstrap
     uv run python -m agentdesk_api.roadmap_identity
+    uv run python -m agentdesk_api.roadmap_epics
 
 # Show current database migration revision
 migration-status:
