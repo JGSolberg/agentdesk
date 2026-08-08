@@ -1,13 +1,13 @@
-export type RepositoryProvider = "local" | "github" | "gitlab";
+export type RepositoryProvider = "github" | "gitlab" | "other";
 
 export type Repository = {
   id: string;
   project_id: string;
   name: string;
-  local_path: string;
   provider: RepositoryProvider;
-  remote_url: string | null;
+  remote_url: string;
   default_branch: string;
+  managed_path: string | null;
   is_primary: boolean;
   created_at: string;
   updated_at: string;
@@ -47,9 +47,8 @@ export function createRepository(
   projectId: string,
   payload: {
     name: string;
-    local_path: string;
     provider: RepositoryProvider;
-    remote_url?: string | null;
+    remote_url: string;
     default_branch: string;
     is_primary?: boolean;
   },
@@ -62,12 +61,16 @@ export function createRepository(
 
 export function updateRepository(
   repositoryId: string,
-  payload: Partial<Pick<Repository, "name" | "local_path" | "provider" | "remote_url" | "default_branch" | "is_primary">>,
+  payload: Partial<Pick<Repository, "name" | "provider" | "remote_url" | "default_branch" | "is_primary">>,
 ): Promise<Repository> {
   return request<Repository>(`/repositories/${repositoryId}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+export function cloneRepository(repositoryId: string): Promise<Repository> {
+  return request<Repository>(`/repositories/${repositoryId}/clone`, { method: "POST" });
 }
 
 export function deleteRepository(repositoryId: string): Promise<void> {
