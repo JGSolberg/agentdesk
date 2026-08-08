@@ -31,6 +31,7 @@ class AgentRead(BaseModel):
 class AgentRunCreate(BaseModel):
     agent_id: str
     workspace_id: str | None = None
+    allow_non_actionable: bool = False
 
 
 class AgentRunUpdate(BaseModel):
