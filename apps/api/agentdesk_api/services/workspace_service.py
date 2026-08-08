@@ -74,6 +74,37 @@ def _record_workspace_event(db: Session, workspace: Workspace, event_type: str) 
     )
 
 
+def _branch_worktree_path(managed_clone: Path, branch: str) -> Path | None:
+    """Return an existing worktree path for branch, including orphaned AgentDesk worktrees."""
+    listing = _git_output(["worktree", "list", "--porcelain"], cwd=managed_clone)
+    current_path: Path | None = None
+    target_ref = f"refs/heads/{branch}"
+    for line in listing.splitlines():
+        if line.startswith("worktree "):
+            current_path = Path(line.removeprefix("worktree ")).resolve()
+        elif line == f"branch {target_ref}" and current_path is not None:
+            return current_path
+        elif not line.strip():
+            current_path = None
+    return None
+
+
+def _prepare_reactivation_path(repository_id: str, managed_clone: Path, workspace: Workspace) -> Path:
+    root = _workspace_root(repository_id)
+    path = Path(workspace.path).resolve()
+    if root not in path.parents:
+        raise HTTPException(status_code=409, detail="Refusing to reactivate a workspace outside AgentDesk storage")
+
+    existing_branch_path = _branch_worktree_path(managed_clone, workspace.branch)
+    if existing_branch_path is not None and existing_branch_path != path:
+        if root not in existing_branch_path.parents:
+            raise HTTPException(status_code=409, detail=f"Branch {workspace.branch} is already checked out outside AgentDesk storage")
+        _git(["worktree", "remove", "--force", str(existing_branch_path)], cwd=managed_clone)
+
+    _git(["worktree", "prune"], cwd=managed_clone)
+    return path
+
+
 def workspace_status(db: Session, workspace_id: str) -> WorkspaceGitStatus:
     workspace = require_workspace(db, workspace_id)
     if workspace.status != WorkspaceStatus.ACTIVE:
@@ -135,6 +166,25 @@ def create_workspace(db: Session, repository_id: str, payload: WorkspaceCreate) 
         raise HTTPException(status_code=422, detail="branch is required when no ticket is supplied")
 
     name = payload.name or (ticket.ticket_key if ticket else branch.replace("/", "-"))
+    managed_clone = Path(repository.managed_path).resolve()
+    _git(["fetch", "--prune", "origin"], cwd=managed_clone)
+
+    existing = workspace_repository.get_by_branch(db, repository.id, branch)
+    if existing is not None:
+        if existing.status == WorkspaceStatus.ACTIVE:
+            if existing.ticket_id == (ticket.id if ticket else None):
+                return existing
+            raise HTTPException(status_code=409, detail=f"Branch {branch} already has an active workspace")
+
+        path = _prepare_reactivation_path(repository.id, managed_clone, existing)
+        _git(["worktree", "add", str(path), branch], cwd=managed_clone)
+        existing.ticket_id = ticket.id if ticket else None
+        existing.name = name
+        existing.status = WorkspaceStatus.ACTIVE
+        existing = workspace_repository.save(db, existing)
+        _record_workspace_event(db, existing, "workspace_reactivated")
+        return existing
+
     workspace_id = __import__("uuid").uuid4().hex
     path = (_workspace_root(repository.id) / workspace_id).resolve()
     root = _workspace_root(repository.id)
@@ -142,8 +192,6 @@ def create_workspace(db: Session, repository_id: str, payload: WorkspaceCreate) 
         raise HTTPException(status_code=409, detail="Refusing to create a workspace outside AgentDesk storage")
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    managed_clone = Path(repository.managed_path).resolve()
-    _git(["fetch", "--prune", "origin"], cwd=managed_clone)
     try:
         _git(["worktree", "add", "-b", branch, str(path), f"origin/{repository.default_branch}"], cwd=managed_clone)
     except HTTPException as exc:
