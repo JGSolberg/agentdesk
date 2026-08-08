@@ -49,12 +49,13 @@ export default function ReviewChanges({ ticket, workspace, onChanged }: { ticket
 
   const prUrl = published?.pull_request_url ?? review?.pull_request_url ?? null;
   const prNumber = published?.pull_request_number ?? review?.pull_request_number ?? null;
+  const prMerged = review?.pull_request_merged ?? false;
 
   return <section className="detail-section review-changes">
     <div className="review-heading"><div><h2>Review changes</h2><p>Inspect the agent work here. GitHub remains the merge and approval authority.</p></div>{review && !review.clean && <span className="review-summary">{review.files.length} file{review.files.length === 1 ? "" : "s"} · +{review.additions} / -{review.deletions}</span>}</div>
 
     {prUrl && <div className="review-pr-ready">
-      <div><strong>{published?.created ? "Pull request created" : review?.unpublished ? "Pull request has unpublished updates" : "Pull request ready"}</strong><span>{workspace.branch}{prNumber ? ` · PR #${prNumber}` : ""}</span></div>
+      <div><strong>{prMerged ? "Pull request merged" : published?.created ? "Pull request created" : review?.unpublished ? "Pull request has unpublished updates" : "Pull request ready"}</strong><span>{workspace.branch}{prNumber ? ` · PR #${prNumber}` : ""}</span></div>
       <a className="review-pr-link" href={prUrl} target="_blank" rel="noreferrer">Open PR{prNumber ? ` #${prNumber}` : ""} in GitHub ↗</a>
     </div>}
     {error && <p className="ticket-lifecycle-error">{error}</p>}
@@ -63,10 +64,11 @@ export default function ReviewChanges({ ticket, workspace, onChanged }: { ticket
     {review && !review.clean && <><div className="review-file-list">{review.files.map((file) => <div key={`${file.status}-${file.path}`}><code>{file.status}</code><span>{file.path}</span></div>)}</div><details className="review-diff" open={ticket.status === "review"}><summary>View diff</summary><pre>{review.diff || "No textual diff available."}</pre></details></>}
 
     <div className="review-actions">
-      {review && !review.clean && <button type="button" disabled={busy} onClick={() => void requestChanges()}>Request changes</button>}
+      {!prMerged && review && !review.clean && <button type="button" disabled={busy} onClick={() => void requestChanges()}>Request changes</button>}
       {!prUrl && review && !review.clean && <button className="primary" type="button" disabled={busy} onClick={() => void publish()}>{busy ? "Creating PR…" : "Create PR"}</button>}
-      {prUrl && review?.unpublished && <button className="primary" type="button" disabled={busy} onClick={() => void publish()}>{busy ? "Updating PR…" : `Update PR${prNumber ? ` #${prNumber}` : ""}`}</button>}
-      {prUrl && !review?.unpublished && <button className="primary" type="button" disabled={busy} onClick={() => void syncPullRequest()}>{busy ? "Checking…" : "Sync PR status"}</button>}
+      {prUrl && !prMerged && review?.unpublished && <button className="primary" type="button" disabled={busy} onClick={() => void publish()}>{busy ? "Updating PR…" : `Update PR${prNumber ? ` #${prNumber}` : ""}`}</button>}
+      {prUrl && !prMerged && !review?.unpublished && <button className="primary" type="button" disabled={busy} onClick={() => void syncPullRequest()}>{busy ? "Checking…" : "Sync PR status"}</button>}
+      {prUrl && prMerged && <button className="primary" type="button" disabled={busy} onClick={() => void syncPullRequest()}>{busy ? "Finalizing…" : "Sync & finalize"}</button>}
     </div>
   </section>;
 }
