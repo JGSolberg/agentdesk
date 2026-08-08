@@ -2,7 +2,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .models import RepositoryProvider, TicketPriority, TicketStatus, TicketType, WorkspaceStatus
+from .models import (
+    GitArtifactKind,
+    RepositoryProvider,
+    TicketPriority,
+    TicketStatus,
+    TicketType,
+    WorkspaceStatus,
+)
 
 
 class ProjectCreate(BaseModel):
@@ -202,6 +209,37 @@ class TicketEventRead(BaseModel):
     actor: str
     payload: dict
     created_at: datetime
+
+
+class GitArtifactCreate(BaseModel):
+    kind: GitArtifactKind
+    identifier: str = Field(min_length=1, max_length=1000)
+    repository_id: str | None = None
+    title: str | None = Field(default=None, max_length=500)
+    url: str | None = Field(default=None, max_length=2000)
+    metadata: dict = Field(default_factory=dict)
+
+
+class GitArtifactUpdate(BaseModel):
+    identifier: str | None = Field(default=None, min_length=1, max_length=1000)
+    repository_id: str | None = None
+    title: str | None = Field(default=None, max_length=500)
+    url: str | None = Field(default=None, max_length=2000)
+    metadata: dict | None = None
+
+
+class GitArtifactRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    ticket_id: str
+    repository_id: str | None
+    kind: GitArtifactKind
+    identifier: str
+    title: str | None
+    url: str | None
+    metadata_: dict = Field(serialization_alias="metadata")
+    created_at: datetime
+    updated_at: datetime
 
 
 class SearchResult(BaseModel):

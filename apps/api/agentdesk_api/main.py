@@ -4,8 +4,11 @@ from sqlalchemy.orm import Session
 from .agent_models import Agent, AgentRun
 from .agent_schemas import AgentCreate, AgentRead, AgentRunCreate, AgentRunLogAppend, AgentRunRead, AgentRunUpdate
 from .database import get_db
-from .models import Project, Repository, Ticket, TicketEvent, Workspace
+from .models import GitArtifact, Project, Repository, Ticket, TicketEvent, Workspace
 from .schemas import (
+    GitArtifactCreate,
+    GitArtifactRead,
+    GitArtifactUpdate,
     ProjectCreate,
     ProjectRead,
     ProjectUpdate,
@@ -24,7 +27,17 @@ from .schemas import (
     WorkspaceRead,
     WorkspaceReview,
 )
-from .services import agent_service, executor_service, project_service, repository_service, review_service, search_service, ticket_service, workspace_service
+from .services import (
+    agent_service,
+    artifact_service,
+    executor_service,
+    project_service,
+    repository_service,
+    review_service,
+    search_service,
+    ticket_service,
+    workspace_service,
+)
 
 app = FastAPI(title="AgentDesk API", version="0.1.0")
 
@@ -90,6 +103,13 @@ def list_ready_tickets(project_id: str, db: Session = Depends(get_db)) -> list[T
 def get_ticket(ticket_id: str, db: Session = Depends(get_db)) -> Ticket: return ticket_service.require_ticket(db, ticket_id)
 @app.get("/tickets/{ticket_id}/events", response_model=list[TicketEventRead])
 def list_ticket_events(ticket_id: str, db: Session = Depends(get_db)) -> list[TicketEvent]: return ticket_service.list_events(db, ticket_id)
+@app.get("/tickets/{ticket_id}/artifacts", response_model=list[GitArtifactRead])
+def list_ticket_artifacts(ticket_id: str, db: Session = Depends(get_db)) -> list[GitArtifact]: return artifact_service.list_artifacts(db, ticket_id)
+@app.post("/tickets/{ticket_id}/artifacts", response_model=GitArtifactRead, status_code=status.HTTP_201_CREATED)
+def create_ticket_artifact(ticket_id: str, payload: GitArtifactCreate, db: Session = Depends(get_db)) -> GitArtifact: return artifact_service.create_artifact(db, ticket_id, payload)
+@app.patch("/artifacts/{artifact_id}", response_model=GitArtifactRead)
+def update_ticket_artifact(artifact_id: str, payload: GitArtifactUpdate, db: Session = Depends(get_db)) -> GitArtifact: return artifact_service.update_artifact(db, artifact_id, payload)
+
 @app.post("/tickets/{ticket_id}/runs", response_model=AgentRunRead, status_code=status.HTTP_201_CREATED)
 def create_agent_run(ticket_id: str, payload: AgentRunCreate, db: Session = Depends(get_db)) -> AgentRun: return agent_service.create_run(db, ticket_id, payload)
 @app.get("/tickets/{ticket_id}/runs", response_model=list[AgentRunRead])

@@ -53,6 +53,13 @@ class WorkspaceStatus(StrEnum):
     REMOVED = "removed"
 
 
+class GitArtifactKind(StrEnum):
+    BRANCH = "branch"
+    COMMIT = "commit"
+    PULL_REQUEST = "pull_request"
+    FILE = "file"
+
+
 def project_ticket_prefix(name: str) -> str:
     words = re.findall(r"[A-Z]+(?=[A-Z][a-z]|\b)|[A-Z]?[a-z]+|\d+", name)
     if len(words) >= 2:
@@ -148,6 +155,7 @@ class Ticket(Base):
     children: Mapped[list[Ticket]] = relationship(back_populates="parent")
     events: Mapped[list[TicketEvent]] = relationship(back_populates="ticket", cascade="all, delete-orphan", order_by="TicketEvent.created_at")
     workspaces: Mapped[list[Workspace]] = relationship(back_populates="ticket")
+    git_artifacts: Mapped[list[GitArtifact]] = relationship(back_populates="ticket", cascade="all, delete-orphan")
     dependencies: Mapped[list[Ticket]] = relationship(secondary=ticket_dependencies, primaryjoin=id == ticket_dependencies.c.ticket_id, secondaryjoin=id == ticket_dependencies.c.dependency_id, back_populates="dependents")
     dependents: Mapped[list[Ticket]] = relationship(secondary=ticket_dependencies, primaryjoin=id == ticket_dependencies.c.dependency_id, secondaryjoin=id == ticket_dependencies.c.ticket_id, back_populates="dependencies")
 
@@ -206,6 +214,23 @@ class TicketEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
 
     ticket: Mapped[Ticket] = relationship(back_populates="events")
+
+
+class GitArtifact(Base):
+    __tablename__ = "git_artifacts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    ticket_id: Mapped[str] = mapped_column(ForeignKey("tickets.id", ondelete="CASCADE"), index=True, nullable=False)
+    repository_id: Mapped[str | None] = mapped_column(ForeignKey("repositories.id", ondelete="SET NULL"), index=True, nullable=True)
+    kind: Mapped[GitArtifactKind] = mapped_column(SqlEnum(GitArtifactKind, native_enum=False, values_callable=lambda enum: [item.value for item in enum]), index=True, nullable=False)
+    identifier: Mapped[str] = mapped_column(String(1000), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    url: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+    ticket: Mapped[Ticket] = relationship(back_populates="git_artifacts")
 
 
 # Register execution subsystem tables on the shared SQLAlchemy metadata.
