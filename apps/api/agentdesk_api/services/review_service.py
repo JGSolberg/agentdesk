@@ -163,7 +163,10 @@ def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
     if review.clean:
         raise HTTPException(status_code=409, detail="Workspace has no reviewable changes to publish")
 
-    _run(["git", "add", "-A", "--", ".", _EXCLUDE_PATHSPEC], cwd=path)
+    # .agentdesk is already ignored by Git. Do not pass the ignored path as an
+    # explicit negative pathspec to `git add`; Git treats that as an attempt to
+    # address an ignored path and aborts before the commit/PR can be created.
+    _run(["git", "add", "-A", "--", "."], cwd=path)
     title = ticket.title
     prefix = f"{ticket.ticket_key} "
     if title.startswith(prefix):
