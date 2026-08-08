@@ -73,6 +73,10 @@ export function cloneRepository(repositoryId: string): Promise<Repository> {
   return request<Repository>(`/repositories/${repositoryId}/clone`, { method: "POST" });
 }
 
+export function removeManagedClone(repositoryId: string): Promise<Repository> {
+  return request<Repository>(`/repositories/${repositoryId}/clone`, { method: "DELETE" });
+}
+
 export function deleteRepository(repositoryId: string): Promise<void> {
   return request<void>(`/repositories/${repositoryId}`, { method: "DELETE" });
 }
