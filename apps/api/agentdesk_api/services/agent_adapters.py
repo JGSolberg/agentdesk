@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import shutil
 from typing import Protocol
 
 from ..agent_models import Agent, AgentRun
@@ -63,7 +64,8 @@ class CodexCliAdapter:
     provider = "codex"
 
     def build_plan(self, agent: Agent, run: AgentRun, workspace: Workspace) -> ExecutionPlan:
-        command = ["codex", "exec", "--sandbox", "workspace-write", "--json", "--ephemeral"]
+        executable = shutil.which("codex") or "codex"
+        command = [executable, "exec", "--sandbox", "workspace-write", "--json", "--ephemeral"]
         if agent.model:
             command.extend(["--model", agent.model])
         command.append(_codex_prompt(run.context_snapshot))
