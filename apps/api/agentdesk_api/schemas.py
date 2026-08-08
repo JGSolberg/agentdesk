@@ -97,6 +97,7 @@ class WorkspaceReview(BaseModel):
     workspace_id: str
     branch: str
     clean: bool
+    unpublished: bool = False
     files: list[WorkspaceReviewFile]
     additions: int
     deletions: int
