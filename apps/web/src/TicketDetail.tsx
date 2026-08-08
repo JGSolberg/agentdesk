@@ -13,6 +13,7 @@ import {
   type TicketType,
 } from "./api/tickets";
 import { createWorkspace, listWorkspaces, removeWorkspace, type Workspace } from "./api/workspaces";
+import TicketLifecycleActions from "./TicketLifecycleActions";
 import WorkspaceStatusCard from "./WorkspaceStatusCard";
 
 function LabelList({ items, empty }: { items: string[]; empty: string }) {
@@ -22,6 +23,10 @@ function LabelList({ items, empty }: { items: string[]; empty: string }) {
 
 function eventSummary(event: TicketEvent): string {
   if (event.event_type === "ticket_created") return "Ticket created";
+  if (event.event_type === "ticket_cancelled") return "Ticket cancelled";
+  if (event.event_type === "ticket_reopened") return "Ticket reopened";
+  if (event.event_type === "ticket_archived") return "Ticket archived";
+  if (event.event_type === "ticket_unarchived") return "Ticket unarchived";
   if (event.event_type === "dependency_added") return `Dependency added: ${String(event.payload.dependency_key ?? "ticket")}`;
   if (event.event_type === "dependency_removed") return `Dependency removed: ${String(event.payload.dependency_key ?? "ticket")}`;
   if (event.event_type === "workspace_created") return `Workspace created: ${String(event.payload.branch ?? event.payload.name ?? "workspace")}`;
@@ -132,13 +137,14 @@ export default function TicketDetail() {
   return (
     <section className="page ticket-detail-page">
       <div className="detail-toolbar"><NavLink className="detail-back" to={`/projects/${ticket.project_id}`}>← Back to board</NavLink><button className="detail-edit-button" type="button" onClick={() => setEditing((value) => !value)}>{editing ? "Cancel" : "Edit ticket"}</button></div>
+      <TicketLifecycleActions ticket={ticket} onChanged={() => reload(ticket.id)} />
       {error && <div className="notice error-notice"><strong>Ticket action failed.</strong><span>{error}</span></div>}
       {editing ? (
         <form className="ticket-edit-form" onSubmit={save}>
           <div className="ticket-edit-row ticket-edit-title-row"><label>Title<input name="title" defaultValue={ticket.title} required /></label></div>
           <div className="ticket-edit-row four-up">
             <label>Type<select name="type" defaultValue={ticket.type}>{["epic","story","task","bug","spike"].map((value) => <option key={value}>{value}</option>)}</select></label>
-            <label>Status<select name="status" defaultValue={ticket.status}>{["backlog","ready","in_progress","review","done","blocked","needs_human","agent_failed"].map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</select></label>
+            <label>Status<select name="status" defaultValue={ticket.status}>{["backlog","ready","in_progress","review","done","blocked","needs_human","agent_failed","cancelled"].map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</select></label>
             <label>Priority<select name="priority" defaultValue={ticket.priority}>{["low","medium","high","critical"].map((value) => <option key={value}>{value}</option>)}</select></label>
             <label>Complexity<input name="estimated_complexity" defaultValue={ticket.estimated_complexity ?? ""} placeholder="small / medium / large" /></label>
           </div>
@@ -152,7 +158,7 @@ export default function TicketDetail() {
         </form>
       ) : (
         <>
-          <header className="ticket-detail-header"><div><div className="ticket-detail-kicker"><span>{ticket.ticket_key}</span><span>{ticket.type}</span></div><h1>{ticket.title}</h1></div><div className="ticket-detail-badges"><span className={`priority-pill ${ticket.priority}`}>{ticket.priority}</span><span className={`detail-status status-${ticket.status}`}>{ticket.status.replaceAll("_", " ")}</span></div></header>
+          <header className="ticket-detail-header"><div><div className="ticket-detail-kicker"><span>{ticket.ticket_key}</span><span>{ticket.type}</span>{ticket.archived && <span>archived</span>}</div><h1>{ticket.title}</h1></div><div className="ticket-detail-badges"><span className={`priority-pill ${ticket.priority}`}>{ticket.priority}</span><span className={`detail-status status-${ticket.status}`}>{ticket.status.replaceAll("_", " ")}</span></div></header>
           <div className="ticket-detail-grid">
             <main className="ticket-detail-main">
               <section className="detail-section"><h2>Goal</h2><p>{ticket.goal || "No goal provided."}</p></section>
