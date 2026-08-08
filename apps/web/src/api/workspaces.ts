@@ -50,6 +50,15 @@ export type WorkspacePublishResult = {
   created: boolean;
 };
 
+export type WorkspacePrSync = {
+  found: boolean;
+  merged: boolean;
+  cleaned_up: boolean;
+  url?: string;
+  number?: number | null;
+  state?: string;
+};
+
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -94,6 +103,10 @@ export function getWorkspaceReview(workspaceId: string): Promise<WorkspaceReview
 
 export function publishWorkspace(workspaceId: string): Promise<WorkspacePublishResult> {
   return request<WorkspacePublishResult>(`/workspaces/${workspaceId}/publish`, { method: "POST" });
+}
+
+export function syncWorkspacePr(workspaceId: string): Promise<WorkspacePrSync> {
+  return request<WorkspacePrSync>(`/workspaces/${workspaceId}/sync-pr`, { method: "POST" });
 }
 
 export function removeWorkspace(workspaceId: string): Promise<Workspace> {
