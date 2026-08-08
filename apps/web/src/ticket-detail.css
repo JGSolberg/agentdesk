@@ -48,14 +48,26 @@
 .workspace-heading h2 { margin-bottom: 4px; }
 .workspace-heading p { font-size: 12px; }
 .ticket-workspace-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px; border: 1px solid #2a303c; border-radius: 8px; background: #0d1117; }
-.ticket-workspace-card > div { display: grid; min-width: 0; gap: 4px; }
+.ticket-workspace-content { display: grid; min-width: 0; flex: 1; gap: 12px; }
+.ticket-workspace-meta { display: grid; min-width: 0; gap: 4px; }
 .ticket-workspace-card strong { color: #e0e6ef; font-size: 13px; }
 .ticket-workspace-card span { color: #788497; font-size: 11px; }
 .ticket-workspace-card code { overflow: hidden; color: #9ba7b8; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .ticket-workspace-card button,
-.ticket-workspace-create button { border: 1px solid #303746; border-radius: 7px; background: #171c24; color: #cdd5e1; padding: 7px 10px; cursor: pointer; white-space: nowrap; }
+.ticket-workspace-create button,
+.workspace-status-card button { border: 1px solid #303746; border-radius: 7px; background: #171c24; color: #cdd5e1; padding: 7px 10px; cursor: pointer; white-space: nowrap; }
 .ticket-workspace-card button:disabled,
-.ticket-workspace-create button:disabled { opacity: 0.5; cursor: default; }
+.ticket-workspace-create button:disabled,
+.workspace-status-card button:disabled { opacity: 0.5; cursor: default; }
+.workspace-status-card { display: grid; gap: 9px; padding-top: 11px; border-top: 1px solid #252b36; }
+.workspace-status-topline { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.workspace-status-topline strong { font-size: 12px; }
+.workspace-status-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+.workspace-status-grid span { display: flex; justify-content: space-between; gap: 5px; padding: 6px 7px; border-radius: 6px; background: #131820; color: #8591a3; font-size: 10px; }
+.workspace-status-grid b { color: #dce3ed; }
+.workspace-head { display: flex; align-items: center; min-width: 0; gap: 8px; }
+.workspace-head span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-status-error { color: #ff9b9b !important; }
 .ticket-workspace-create { display: flex; gap: 8px; }
 .ticket-workspace-create select { flex: 1; border: 1px solid #303746; border-radius: 7px; background: #0d1117; color: #d9e0ea; padding: 8px 10px; }
 .archived-workspaces { border-top: 1px solid #252b36; padding-top: 10px; color: #7c8798; font-size: 11px; }
@@ -75,5 +87,6 @@
   .ticket-detail-grid { grid-template-columns: 1fr; }
   .ticket-edit-row.two-up, .ticket-edit-row.four-up { grid-template-columns: 1fr; }
   .ticket-workspace-card, .ticket-workspace-create { display: grid; }
+  .workspace-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .archived-workspaces div { grid-template-columns: 1fr; }
 }
