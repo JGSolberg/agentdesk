@@ -28,9 +28,7 @@ class ExecutionOutcome:
 
 class AgentAdapter(Protocol):
     provider: str
-
     def build_plan(self, agent: Agent, run: AgentRun, workspace: Workspace) -> ExecutionPlan: ...
-
     def parse_output(self, stdout: str, stderr: str, returncode: int) -> ExecutionOutcome: ...
 
 
@@ -52,13 +50,7 @@ def _workspace_tool_environment(workspace: Workspace) -> dict[str, str]:
     pnpm_home = cache / "pnpm"
     for directory in (temp, uv_cache, pnpm_home):
         directory.mkdir(parents=True, exist_ok=True)
-    return {
-        "TMP": str(temp),
-        "TEMP": str(temp),
-        "TMPDIR": str(temp),
-        "UV_CACHE_DIR": str(uv_cache),
-        "PNPM_HOME": str(pnpm_home),
-    }
+    return {"TMP": str(temp), "TEMP": str(temp), "TMPDIR": str(temp), "UV_CACHE_DIR": str(uv_cache), "PNPM_HOME": str(pnpm_home)}
 
 
 class LocalCommandAdapter:
@@ -178,7 +170,7 @@ Instructions:
 - Make the smallest coherent implementation that satisfies the ticket.
 - Run relevant tests, linters, or builds when practical after conflict resolution and implementation.
 - Keep temporary files and tool caches inside the current worktree; AgentDesk provides workspace-local TMP/TEMP and UV cache paths.
-- Do not push or create a pull request.
+- Do not push, merge, or create a pull request. Here, "merge" means merging this AgentDesk branch into another branch; the narrow exception above allows integrating the fetched default branch into this current branch.
 - Do not create or switch branches; AgentDesk owns the worktree and branch.
 - Leave the branch conflict-free and all resulting work in the worktree for human review.
 - Finish with a concise summary of changes, integration/conflict resolution performed, validation performed, and anything that still needs human attention.
