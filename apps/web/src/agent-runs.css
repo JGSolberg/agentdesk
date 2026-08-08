@@ -1,0 +1,26 @@
+.ticket-runs-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.ticket-runs-heading p { margin:4px 0 0; color:#758195; font-size:11px; }
+.ticket-runs-heading button, .ticket-run-controls button, .ticket-agent-form button { min-height:34px; border:1px solid #303947; border-radius:7px; background:#171d26; color:#c0c9d6; padding:0 12px; font:inherit; font-size:11px; font-weight:700; cursor:pointer; }
+.ticket-agent-form { display:grid; grid-template-columns:160px minmax(0,1fr) auto; gap:8px; margin-top:14px; }
+.ticket-agent-form input, .ticket-run-controls select { min-height:36px; border:1px solid #2c3440; border-radius:7px; background:#0d1219; color:#e3e8ef; padding:0 10px; font:inherit; font-size:11px; }
+.ticket-run-controls { display:grid; grid-template-columns:minmax(150px,220px) minmax(180px,1fr) auto; gap:8px; margin:14px 0; }
+.ticket-run-controls button { background:#e6eaff; color:#11151c; border-color:#e6eaff; }
+.ticket-run-controls button:disabled, .ticket-agent-form button:disabled { opacity:.45; cursor:default; }
+.ticket-run-list { display:grid; gap:8px; }
+.ticket-run-card { border:1px solid #29313d; border-radius:9px; background:#10151c; overflow:hidden; }
+.ticket-run-card summary { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px 13px; cursor:pointer; list-style:none; }
+.ticket-run-card summary::-webkit-details-marker { display:none; }
+.ticket-run-card summary > div { display:grid; gap:2px; }
+.ticket-run-card summary strong { color:#e5eaf1; font-size:12px; }
+.ticket-run-card summary span { color:#657186; font-size:10px; }
+.ticket-run-card summary b { color:#8f9aac; font-size:10px; text-transform:uppercase; letter-spacing:.04em; }
+.ticket-run-card.run-succeeded { border-left:3px solid #6fa47d; }
+.ticket-run-card.run-failed { border-left:3px solid #d46f79; }
+.ticket-run-card.run-running { border-left:3px solid #7585ff; }
+.ticket-run-body { display:grid; gap:10px; padding:0 13px 13px; border-top:1px solid #222a35; }
+.ticket-run-body > pre { margin:10px 0 0; padding:10px; border-radius:7px; background:#0a0e13; color:#cbd3df; white-space:pre-wrap; font-size:11px; }
+.ticket-run-logs { display:grid; gap:7px; }
+.ticket-run-logs > div { display:grid; grid-template-columns:55px 1fr; gap:8px; align-items:start; }
+.ticket-run-logs span { padding-top:2px; color:#687488; font-size:9px; text-transform:uppercase; }
+.ticket-run-logs pre { margin:0; color:#aeb8c6; white-space:pre-wrap; overflow-wrap:anywhere; font-size:10px; }
+@media (max-width:800px) { .ticket-agent-form, .ticket-run-controls { grid-template-columns:1fr; } }
