@@ -83,11 +83,12 @@ class CodexCliAdapter:
 
     def build_plan(self, agent: Agent, run: AgentRun, workspace: Workspace) -> ExecutionPlan:
         executable = shutil.which("codex") or "codex"
+        # In Codex 0.147+, --approve-for-me already routes approval requests
+        # through the workspace-write sandbox, so it is mutually exclusive with
+        # passing --sandbox workspace-write explicitly.
         command = [
             executable,
             "exec",
-            "--sandbox",
-            "workspace-write",
             "--approve-for-me",
             "--json",
             "--ephemeral",
@@ -142,8 +143,8 @@ class CodexCliAdapter:
         )
         if any(marker in permission_text for marker in permission_markers):
             message = (
-                "Codex could inspect the workspace but could not write to it. AgentDesk runs Codex with workspace-write and "
-                "--approve-for-me; verify the local Codex permissions configuration if this continues."
+                "Codex could inspect the workspace but could not write to it. AgentDesk runs Codex with --approve-for-me, "
+                "which uses Codex's workspace-write approval path; verify the local Codex permissions configuration if this continues."
             )
             logs.append(("needs_human", message))
             return ExecutionOutcome(logs=logs, result=final_message, error=message, needs_human=True)
