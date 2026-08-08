@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..models import TicketEvent, Workspace, WorkspaceStatus
 from ..repositories import event_repository, workspace_repository
-from ..schemas import WorkspaceAdoptPr, WorkspaceCreate, WorkspaceGitStatus
+from ..schemas import WorkspaceAdoptWork, WorkspaceCreate, WorkspaceGitStatus
 from .repository_service import require_repository
 from .ticket_service import require_ticket
 
@@ -200,16 +200,9 @@ def create_workspace(db: Session, repository_id: str, payload: WorkspaceCreate) 
     return workspace
 
 
-def adopt_pull_request(db: Session, repository_id: str, payload: WorkspaceAdoptPr) -> Workspace:
-    repository = require_repository(db, repository_id)
-    if not repository.managed_path:
-        raise HTTPException(status_code=409, detail="Clone the repository before adopting existing work")
-    ticket = require_ticket(db, payload.ticket_id)
-    if ticket.project_id != repository.project_id:
-        raise HTTPException(status_code=409, detail="Ticket and repository must belong to the same project")
-    managed_clone = Path(repository.managed_path).resolve()
+def _resolve_pr_branch(managed_clone: Path, pull_request: str) -> tuple[str, dict[str, object]]:
     try:
-        result = subprocess.run(["gh", "pr", "view", payload.pull_request, "--json", "number,url,headRefName,baseRefName,state,mergedAt"], cwd=str(managed_clone), capture_output=True, text=True, encoding="utf-8", errors="replace")
+        result = subprocess.run(["gh", "pr", "view", pull_request, "--json", "number,url,headRefName,baseRefName,state,mergedAt"], cwd=str(managed_clone), capture_output=True, text=True, encoding="utf-8", errors="replace")
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail="GitHub CLI was not found") from exc
     if result.returncode != 0:
@@ -221,15 +214,42 @@ def adopt_pull_request(db: Session, repository_id: str, payload: WorkspaceAdoptP
     branch = str(pr.get("headRefName") or "").strip()
     if not branch:
         raise HTTPException(status_code=409, detail="Pull request has no head branch")
+    return branch, pr
+
+
+def adopt_existing_work(db: Session, repository_id: str, payload: WorkspaceAdoptWork) -> Workspace:
+    repository = require_repository(db, repository_id)
+    if not repository.managed_path:
+        raise HTTPException(status_code=409, detail="Clone the repository before adopting existing work")
+    ticket = require_ticket(db, payload.ticket_id)
+    if ticket.project_id != repository.project_id:
+        raise HTTPException(status_code=409, detail="Ticket and repository must belong to the same project")
+    managed_clone = Path(repository.managed_path).resolve()
+
+    pr: dict[str, object] | None = None
+    branch = (payload.branch or "").strip()
+    if payload.pull_request:
+        pr_branch, pr = _resolve_pr_branch(managed_clone, payload.pull_request)
+        if branch and branch != pr_branch:
+            raise HTTPException(status_code=409, detail=f"Pull request head branch is {pr_branch}, not {branch}")
+        branch = pr_branch
+    if not branch:
+        raise HTTPException(status_code=422, detail="branch or pull_request is required")
+
     existing = workspace_repository.get_by_branch(db, repository.id, branch)
     if existing and existing.status == WorkspaceStatus.ACTIVE:
         if existing.ticket_id == ticket.id:
             return existing
         raise HTTPException(status_code=409, detail=f"Branch {branch} already belongs to another active workspace")
+
     _git(["fetch", "--prune", "origin", branch], cwd=managed_clone)
+    remote_branch = _git_output(["show-ref", "--verify", f"refs/remotes/origin/{branch}"], cwd=managed_clone, allow_failure=True)
+    if not remote_branch:
+        raise HTTPException(status_code=404, detail=f"Remote branch origin/{branch} was not found")
     local_branch = _git_output(["show-ref", "--verify", f"refs/heads/{branch}"], cwd=managed_clone, allow_failure=True)
     if not local_branch:
         _git(["branch", "--track", branch, f"origin/{branch}"], cwd=managed_clone)
+
     if existing:
         path = _prepare_reactivation_path(repository.id, managed_clone, existing)
         existing.ticket_id = ticket.id
@@ -241,9 +261,13 @@ def adopt_pull_request(db: Session, repository_id: str, payload: WorkspaceAdoptP
         path = (_workspace_root(repository.id) / workspace_id).resolve()
         path.parent.mkdir(parents=True, exist_ok=True)
         workspace = Workspace(id=workspace_id, project_id=repository.project_id, repository_id=repository.id, ticket_id=ticket.id, name=ticket.ticket_key, branch=branch, path=str(path), status=WorkspaceStatus.ACTIVE)
+
     _git(["worktree", "add", str(path), branch], cwd=managed_clone)
     workspace = workspace_repository.save(db, workspace)
-    _record_workspace_event(db, workspace, "workspace_adopted", {"pull_request_url": pr.get("url"), "pull_request_number": pr.get("number"), "base_branch": pr.get("baseRefName")})
+    extra: dict[str, object] = {"adopted_branch": branch}
+    if pr:
+        extra.update({"pull_request_url": pr.get("url"), "pull_request_number": pr.get("number"), "base_branch": pr.get("baseRefName")})
+    _record_workspace_event(db, workspace, "workspace_adopted", extra)
     return workspace
 
 
