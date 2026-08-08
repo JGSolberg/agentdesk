@@ -136,8 +136,7 @@ export default function TicketDetail() {
 
   return (
     <section className="page ticket-detail-page">
-      <div className="detail-toolbar"><NavLink className="detail-back" to={`/projects/${ticket.project_id}`}>← Back to board</NavLink><button className="detail-edit-button" type="button" onClick={() => setEditing((value) => !value)}>{editing ? "Cancel" : "Edit ticket"}</button></div>
-      <TicketLifecycleActions ticket={ticket} onChanged={() => reload(ticket.id)} />
+      <div className="detail-toolbar"><NavLink className="detail-back" to={`/projects/${ticket.project_id}`}>← Back to board</NavLink><TicketLifecycleActions ticket={ticket} onChanged={() => reload(ticket.id)} onEdit={() => setEditing(true)} /></div>
       {error && <div className="notice error-notice"><strong>Ticket action failed.</strong><span>{error}</span></div>}
       {editing ? (
         <form className="ticket-edit-form" onSubmit={save}>
