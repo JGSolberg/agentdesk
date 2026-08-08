@@ -70,6 +70,8 @@ def get_workspace_status(workspace_id: str, db: Session = Depends(get_db)) -> Wo
 def get_workspace_review(workspace_id: str, db: Session = Depends(get_db)) -> WorkspaceReview: return review_service.workspace_review(db, workspace_id)
 @app.post("/workspaces/{workspace_id}/publish", response_model=WorkspacePublishResult)
 def publish_workspace(workspace_id: str, db: Session = Depends(get_db)) -> WorkspacePublishResult: return review_service.publish_workspace(db, workspace_id)
+@app.post("/workspaces/{workspace_id}/sync-pr")
+def sync_workspace_pr(workspace_id: str, db: Session = Depends(get_db)) -> dict[str, object]: return review_service.sync_pull_request(db, workspace_id)
 @app.delete("/workspaces/{workspace_id}", response_model=WorkspaceRead)
 def remove_workspace(workspace_id: str, db: Session = Depends(get_db)) -> Workspace: return workspace_service.remove_workspace(db, workspace_id)
 @app.delete("/repositories/{repository_id}", status_code=status.HTTP_204_NO_CONTENT)
