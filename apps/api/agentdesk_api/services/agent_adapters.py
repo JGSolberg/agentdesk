@@ -83,7 +83,15 @@ class CodexCliAdapter:
 
     def build_plan(self, agent: Agent, run: AgentRun, workspace: Workspace) -> ExecutionPlan:
         executable = shutil.which("codex") or "codex"
-        command = [executable, "exec", "--sandbox", "workspace-write", "--json", "--ephemeral"]
+        command = [
+            executable,
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--approve-for-me",
+            "--json",
+            "--ephemeral",
+        ]
         if agent.model:
             command.extend(["--model", agent.model])
         command.append("-")
@@ -134,8 +142,8 @@ class CodexCliAdapter:
         )
         if any(marker in permission_text for marker in permission_markers):
             message = (
-                "Codex could inspect the workspace but could not write to it. On Windows, initialize the Codex agent sandbox "
-                "once from the interactive Codex CLI (choose the default sandbox when prompted), then rerun this ticket."
+                "Codex could inspect the workspace but could not write to it. AgentDesk runs Codex with workspace-write and "
+                "--approve-for-me; verify the local Codex permissions configuration if this continues."
             )
             logs.append(("needs_human", message))
             return ExecutionOutcome(logs=logs, result=final_message, error=message, needs_human=True)
