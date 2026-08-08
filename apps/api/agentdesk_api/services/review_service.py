@@ -67,15 +67,28 @@ def _status_lines(path: Path) -> list[str]:
     return [line for line in result.stdout.splitlines() if line.strip()]
 
 
-def _review_files(path: Path) -> list[WorkspaceReviewFile]:
-    files: list[WorkspaceReviewFile] = []
+def _base_ref(path: Path, default_branch: str) -> str:
+    candidate = f"origin/{default_branch}"
+    verified = _run(["git", "rev-parse", "--verify", candidate], cwd=path, allow_failure=True)
+    return candidate if verified.returncode == 0 else "HEAD"
+
+
+def _review_files(path: Path, base_ref: str) -> list[WorkspaceReviewFile]:
+    files: dict[str, WorkspaceReviewFile] = {}
+    committed = _run(["git", "diff", "--name-status", base_ref, "--", ".", _EXCLUDE_PATHSPEC], cwd=path, allow_failure=True)
+    for line in committed.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            status = parts[0]
+            raw_path = parts[-1]
+            files[raw_path] = WorkspaceReviewFile(path=raw_path, status=status)
     for line in _status_lines(path):
         code = line[:2]
         raw_path = line[3:].strip()
         if " -> " in raw_path:
             raw_path = raw_path.split(" -> ", 1)[1]
-        files.append(WorkspaceReviewFile(path=raw_path, status=code))
-    return files
+        files[raw_path] = WorkspaceReviewFile(path=raw_path, status=code)
+    return list(files.values())
 
 
 def _untracked_diff(path: Path, files: list[WorkspaceReviewFile]) -> str:
@@ -105,11 +118,27 @@ def _untracked_diff(path: Path, files: list[WorkspaceReviewFile]) -> str:
     return "\n".join(chunk for chunk in chunks if chunk)
 
 
+def _has_unmerged_conflicts(path: Path) -> bool:
+    return bool(_run(["git", "diff", "--name-only", "--diff-filter=U"], cwd=path, allow_failure=True).stdout.strip())
+
+
+def _has_unpublished_work(path: Path) -> bool:
+    if _status_lines(path):
+        return True
+    upstream = _run(["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], cwd=path, allow_failure=True)
+    if upstream.returncode != 0:
+        return False
+    ahead = _run(["git", "rev-list", "--count", "@{upstream}..HEAD"], cwd=path, allow_failure=True)
+    return ahead.returncode == 0 and int(ahead.stdout.strip() or "0") > 0
+
+
 def workspace_review(db: Session, workspace_id: str) -> WorkspaceReview:
     workspace = require_workspace(db, workspace_id)
     path = _workspace_path(workspace)
-    files = _review_files(path)
-    tracked = _run(["git", "diff", "HEAD", "--", ".", _EXCLUDE_PATHSPEC], cwd=path).stdout
+    repository = require_repository(db, workspace.repository_id)
+    base_ref = _base_ref(path, repository.default_branch)
+    files = _review_files(path, base_ref)
+    tracked = _run(["git", "diff", base_ref, "--", ".", _EXCLUDE_PATHSPEC], cwd=path).stdout
     diff = tracked
     untracked = _untracked_diff(path, files)
     if untracked:
@@ -128,6 +157,7 @@ def workspace_review(db: Session, workspace_id: str) -> WorkspaceReview:
         workspace_id=workspace.id,
         branch=workspace.branch,
         clean=len(files) == 0,
+        unpublished=_has_unpublished_work(path),
         files=files,
         additions=additions,
         deletions=deletions,
@@ -148,10 +178,22 @@ def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
     path = _workspace_path(workspace)
     ticket = require_ticket(db, workspace.ticket_id)
     repository = require_repository(db, workspace.repository_id)
-    review = workspace_review(db, workspace.id)
 
+    _run(["git", "fetch", "--prune", "origin", repository.default_branch], cwd=path)
+    if _has_unmerged_conflicts(path):
+        raise HTTPException(status_code=409, detail="Workspace still has unresolved merge conflicts. Run the agent again before publishing.")
+
+    base_ref = f"origin/{repository.default_branch}"
+    current = _run(["git", "merge-base", "--is-ancestor", base_ref, "HEAD"], cwd=path, allow_failure=True)
+    if current.returncode != 0:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Workspace is not integrated with the latest {base_ref}. Run the agent again so it can resolve default-branch conflicts before publishing.",
+        )
+
+    review = workspace_review(db, workspace.id)
     existing = _existing_pr(path, workspace.branch)
-    if existing is not None:
+    if review.clean and existing is not None:
         return WorkspacePublishResult(
             branch=workspace.branch,
             commit_sha=None,
@@ -159,22 +201,30 @@ def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
             pull_request_number=existing["number"] if isinstance(existing["number"], int) else None,
             created=False,
         )
-
     if review.clean:
         raise HTTPException(status_code=409, detail="Workspace has no reviewable changes to publish")
 
-    # .agentdesk is already ignored by Git. Do not pass the ignored path as an
-    # explicit negative pathspec to `git add`; Git treats that as an attempt to
-    # address an ignored path and aborts before the commit/PR can be created.
     _run(["git", "add", "-A", "--", "."], cwd=path)
     title = ticket.title
     prefix = f"{ticket.ticket_key} "
     if title.startswith(prefix):
         title = title[len(prefix):]
     commit_title = f"{ticket.ticket_key}: {title}"
-    _run(["git", "commit", "-m", commit_title], cwd=path)
+
+    staged = _run(["git", "diff", "--cached", "--quiet"], cwd=path, allow_failure=True)
+    if staged.returncode != 0:
+        _run(["git", "commit", "-m", commit_title], cwd=path)
     commit_sha = _run(["git", "rev-parse", "HEAD"], cwd=path).stdout.strip()
     _run(["git", "push", "-u", "origin", workspace.branch], cwd=path)
+
+    if existing is not None:
+        return WorkspacePublishResult(
+            branch=workspace.branch,
+            commit_sha=commit_sha,
+            pull_request_url=str(existing["url"]),
+            pull_request_number=existing["number"] if isinstance(existing["number"], int) else None,
+            created=False,
+        )
 
     body = (
         f"AgentDesk ticket **{ticket.ticket_key}**\n\n"
