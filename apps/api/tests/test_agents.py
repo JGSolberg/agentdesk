@@ -112,8 +112,10 @@ def test_codex_adapter_builds_sandboxed_json_exec_plan(tmp_path: Path) -> None:
     assert Path(plan.command[0]).stem.lower() == "codex"
     assert plan.command[1:6] == ["exec", "--sandbox", "workspace-write", "--json", "--ephemeral"]
     assert plan.command[6:8] == ["--model", "gpt-5.6-sol"]
-    assert "AD-42 — Provider adapters" in plan.command[-1]
-    assert "Do not push, merge, or create a pull request." in plan.command[-1]
+    assert plan.command[-1] == "-"
+    assert plan.stdin is not None
+    assert "AD-42 — Provider adapters" in plan.stdin
+    assert "Do not push, merge, or create a pull request." in plan.stdin
     assert plan.environment["AGENTDESK_TICKET_KEY"] == "AD-42"
 
 
