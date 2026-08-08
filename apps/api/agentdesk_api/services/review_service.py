@@ -38,6 +38,26 @@ def _workspace_path(workspace: Workspace) -> Path:
     return path
 
 
+def _existing_pr(path: Path, branch: str) -> tuple[str, int | None] | None:
+    try:
+        result = _run(["gh", "pr", "view", branch, "--json", "url,number"], cwd=path, allow_failure=True)
+    except HTTPException as exc:
+        if exc.status_code == 503:
+            return None
+        raise
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+    url = str(payload.get("url") or "").strip()
+    if not url:
+        return None
+    number = payload.get("number")
+    return url, int(number) if isinstance(number, int) else None
+
+
 def _status_lines(path: Path) -> list[str]:
     result = _run(["git", "status", "--porcelain=v1", "--untracked-files=all", "--", ".", _EXCLUDE_PATHSPEC], cwd=path)
     return [line for line in result.stdout.splitlines() if line.strip()]
@@ -99,6 +119,7 @@ def workspace_review(db: Session, workspace_id: str) -> WorkspaceReview:
             additions += 1
         elif line.startswith("-"):
             deletions += 1
+    existing = _existing_pr(path, workspace.branch)
     return WorkspaceReview(
         workspace_id=workspace.id,
         branch=workspace.branch,
@@ -107,26 +128,13 @@ def workspace_review(db: Session, workspace_id: str) -> WorkspaceReview:
         additions=additions,
         deletions=deletions,
         diff=diff,
+        pull_request_url=existing[0] if existing else None,
+        pull_request_number=existing[1] if existing else None,
     )
 
 
 def has_reviewable_changes(db: Session, workspace_id: str) -> bool:
     return not workspace_review(db, workspace_id).clean
-
-
-def _existing_pr(path: Path, branch: str) -> tuple[str, int | None] | None:
-    result = _run(["gh", "pr", "view", branch, "--json", "url,number"], cwd=path, allow_failure=True)
-    if result.returncode != 0 or not result.stdout.strip():
-        return None
-    try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return None
-    url = str(payload.get("url") or "").strip()
-    if not url:
-        return None
-    number = payload.get("number")
-    return url, int(number) if isinstance(number, int) else None
 
 
 def publish_workspace(db: Session, workspace_id: str) -> WorkspacePublishResult:
