@@ -1,6 +1,6 @@
 .ticket-lifecycle-wrap {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  justify-content: flex-end;
   margin: -10px 0 22px;
 }
 
@@ -29,8 +29,7 @@
 .status-cancelled { border-color: #55505f; color: #b9b0c8; }
 
 .relationship-panel {
-  margin: 0 0 22px auto;
-  width: min(520px, 100%);
+  width: 100%;
   gap: 14px;
 }
 .relationship-group { display: grid; gap: 7px; }
@@ -61,9 +60,9 @@
 .relationship-error { color: #ff9a9a; font-size: 11px; }
 
 @media (max-width: 760px) {
+  .ticket-lifecycle-wrap { justify-content: flex-start; }
   .ticket-lifecycle-actions { justify-content: flex-start; flex-wrap: wrap; }
   .ticket-lifecycle-note,
   .ticket-lifecycle-error { text-align: left; }
-  .relationship-panel { margin-left: 0; }
   .relationship-add { grid-template-columns: 1fr; }
 }
