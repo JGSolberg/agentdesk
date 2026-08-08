@@ -1,18 +1,21 @@
-from fastapi import Depends, FastAPI, status
+from fastapi import Depends, FastAPI, Response, status
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from .models import Project, Ticket, TicketEvent
+from .models import Project, Repository, Ticket, TicketEvent
 from .schemas import (
     ProjectCreate,
     ProjectRead,
     ProjectUpdate,
+    RepositoryCreate,
+    RepositoryRead,
+    RepositoryUpdate,
     TicketCreate,
     TicketEventRead,
     TicketRead,
     TicketUpdate,
 )
-from .services import project_service, ticket_service
+from .services import project_service, repository_service, ticket_service
 
 app = FastAPI(title="AgentDesk API", version="0.1.0")
 
@@ -40,6 +43,32 @@ def get_project(project_id: str, db: Session = Depends(get_db)) -> Project:
 @app.patch("/projects/{project_id}", response_model=ProjectRead)
 def update_project(project_id: str, payload: ProjectUpdate, db: Session = Depends(get_db)) -> Project:
     return project_service.update_project(db, project_id, payload)
+
+
+@app.post("/projects/{project_id}/repositories", response_model=RepositoryRead, status_code=status.HTTP_201_CREATED)
+def create_repository(project_id: str, payload: RepositoryCreate, db: Session = Depends(get_db)) -> Repository:
+    return repository_service.create_repository(db, project_id, payload)
+
+
+@app.get("/projects/{project_id}/repositories", response_model=list[RepositoryRead])
+def list_repositories(project_id: str, db: Session = Depends(get_db)) -> list[Repository]:
+    return repository_service.list_repositories(db, project_id)
+
+
+@app.get("/repositories/{repository_id}", response_model=RepositoryRead)
+def get_repository(repository_id: str, db: Session = Depends(get_db)) -> Repository:
+    return repository_service.require_repository(db, repository_id)
+
+
+@app.patch("/repositories/{repository_id}", response_model=RepositoryRead)
+def update_repository(repository_id: str, payload: RepositoryUpdate, db: Session = Depends(get_db)) -> Repository:
+    return repository_service.update_repository(db, repository_id, payload)
+
+
+@app.delete("/repositories/{repository_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_repository(repository_id: str, db: Session = Depends(get_db)) -> Response:
+    repository_service.delete_repository(db, repository_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.post("/projects/{project_id}/tickets", response_model=TicketRead, status_code=status.HTTP_201_CREATED)
