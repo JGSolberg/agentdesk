@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { globalSearch, type SearchResult } from "./api/search";
@@ -64,7 +64,7 @@ export default function CommandPalette() {
     navigate(result.href);
   }
 
-  function onInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+  function onInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setSelected((value) => Math.min(value + 1, Math.max(results.length - 1, 0)));
