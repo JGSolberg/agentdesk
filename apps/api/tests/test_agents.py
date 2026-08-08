@@ -1,11 +1,14 @@
+import json
 import sys
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from agentdesk_api.agent_models import Agent, AgentRun
 from agentdesk_api.database import SessionLocal
 from agentdesk_api.main import app
 from agentdesk_api.models import Workspace, WorkspaceStatus
+from agentdesk_api.services.agent_adapters import CodexCliAdapter
 
 
 def test_agent_run_lifecycle_and_context_snapshot() -> None:
@@ -77,3 +80,55 @@ def test_local_command_executor_uses_workspace_and_ticket_context(tmp_path: Path
         assert body["started_at"] is not None
         assert body["finished_at"] is not None
         assert any(entry["level"] == "stdout" and ticket["ticket_key"] in entry["message"] for entry in body["logs"])
+
+
+def test_codex_adapter_builds_sandboxed_json_exec_plan(tmp_path: Path) -> None:
+    adapter = CodexCliAdapter()
+    agent = Agent(id="agent-1", project_id="project-1", name="Codex", provider="codex", model="gpt-5.6-sol")
+    run = AgentRun(
+        id="run-1",
+        ticket_id="ticket-1",
+        agent_id="agent-1",
+        context_snapshot={
+            "ticket_key": "AD-42",
+            "title": "Provider adapters",
+            "type": "story",
+            "priority": "high",
+            "goal": "Run Codex through a provider adapter",
+            "description": "Keep executor provider-neutral",
+            "acceptance_criteria": ["Codex can edit the worktree", "Telemetry is captured"],
+            "definition_of_done": ["Tests pass"],
+            "constraints": ["Do not push"],
+            "context": [],
+            "relevant_files": ["apps/api"],
+        },
+    )
+    workspace = Workspace(id="workspace-1", project_id="project-1", repository_id="repo-1", ticket_id="ticket-1", name="AD-42", branch="agent/AD-42", path=str(tmp_path), status=WorkspaceStatus.ACTIVE)
+
+    plan = adapter.build_plan(agent, run, workspace)
+
+    assert plan.shell is False
+    assert isinstance(plan.command, list)
+    assert plan.command[:6] == ["codex", "exec", "--sandbox", "workspace-write", "--json", "--ephemeral"]
+    assert plan.command[6:8] == ["--model", "gpt-5.6-sol"]
+    assert "AD-42 — Provider adapters" in plan.command[-1]
+    assert "Do not push, merge, or create a pull request." in plan.command[-1]
+    assert plan.environment["AGENTDESK_TICKET_KEY"] == "AD-42"
+
+
+def test_codex_adapter_parses_jsonl_telemetry_and_final_message() -> None:
+    adapter = CodexCliAdapter()
+    stdout = "\n".join([
+        json.dumps({"type": "thread.started", "thread_id": "thread-123"}),
+        json.dumps({"type": "item.completed", "item": {"type": "command_execution", "command": "uv run pytest", "status": "completed"}}),
+        json.dumps({"type": "item.completed", "item": {"type": "agent_message", "text": "Implemented the adapter and tests pass."}}),
+        json.dumps({"type": "turn.completed", "usage": {"input_tokens": 100, "output_tokens": 25}}),
+    ])
+
+    outcome = adapter.parse_output(stdout, "", 0)
+
+    assert outcome.error is None
+    assert outcome.result == "Implemented the adapter and tests pass."
+    assert ("codex", "Thread thread-123") in outcome.logs
+    assert any(level == "command" and "uv run pytest" in message for level, message in outcome.logs)
+    assert any(level == "usage" and "input_tokens" in message for level, message in outcome.logs)
